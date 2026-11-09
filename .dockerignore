@@ -39,3 +39,6 @@ pnpm-debug.log*
 *.txt
 LICENSE
 unraid-templates
+
+# Local baseline build artifacts and isolated test state
+.baseline

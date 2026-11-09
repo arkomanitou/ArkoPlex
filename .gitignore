@@ -34,3 +34,6 @@ branding
 /cache/
 
 .metadata/
+
+# Local baseline builds, logs and isolated smoke-test state
+/.baseline/

@@ -1,0 +1,20 @@
+{
+  "milestone": "ArkoPlex - Jalon 0",
+  "date": "2026-11-09",
+  "upstream": {
+    "url": "https://github.com/PelagicaApp/pelagica.git",
+    "version": "4.15.0",
+    "commit": "fc6e0aa6edd7b63a85fdbb7963b6c724b81364b7"
+  },
+  "toolchain": {
+    "node": "24.22.1",
+    "pnpm": "11.25.0",
+    "go": "1.25.14",
+    "go_linux_amd64_archive_sha256": "a21ae5633a269bcd7e90cf767e48225633795e99d831742cbf3397064fee7712"
+  },
+  "validated_platform": "linux/amd64",
+  "product_scope": "Unmodified Pelagica web frontend and Go backend",
+  "docker_image_validated": false,
+  "live_jellyfin_connection_tested": false,
+  "visual_browser_check": "blocked_by_environment"
+}
