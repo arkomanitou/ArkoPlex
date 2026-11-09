@@ -10,7 +10,11 @@ export function useFavorite(itemId: string | null | undefined) {
 
     const isFavorite = item?.UserData?.IsFavorite ?? false;
 
-    const { mutate: toggleFavorite, isPending: isToggling } = useMutation({
+    const {
+        mutate: toggleFavorite,
+        mutateAsync: toggleFavoriteAsync,
+        isPending: isToggling,
+    } = useMutation({
         mutationFn: async (favorite: boolean) => {
             if (!itemId) throw new Error('Item ID is required');
             const api = getApi();
@@ -34,6 +38,7 @@ export function useFavorite(itemId: string | null | undefined) {
     return {
         isFavorite,
         toggleFavorite,
+        toggleFavoriteAsync,
         isLoading: isFavoriteLoading || isToggling,
     };
 }

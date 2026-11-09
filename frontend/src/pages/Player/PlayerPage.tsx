@@ -408,7 +408,10 @@ const PlayerPage = () => {
     }
 
     return (
-        <div ref={containerRef} className="relative w-full h-screen bg-black flex overflow-hidden">
+        <div
+            ref={containerRef}
+            className="arko-player relative w-full h-screen bg-black flex overflow-hidden"
+        >
             <VideoPlayer
                 key={itemId}
                 src={streamResult.url}

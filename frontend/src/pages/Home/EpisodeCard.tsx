@@ -37,8 +37,11 @@ export function EpisodeCard({ item, titleLine, detailLine, useSeriesImage }: Epi
 
     return (
         <GeneralItemContextMenu item={item} playLink={playLink}>
-            <Link to={`/item/${item.Id}`} className="group shrink-0 w-48 lg:w-64 2xl:w-80">
-                <div className="relative w-full aspect-video rounded-md overflow-hidden">
+            <Link
+                to={`/item/${item.Id}`}
+                className="arko-resume-card group shrink-0 w-48 lg:w-64 2xl:w-80"
+            >
+                <div className="arko-poster-art relative w-full aspect-video rounded-md overflow-hidden">
                     {!imageSrc ? (
                         <div className="w-full h-full bg-muted flex items-center justify-center rounded-md">
                             <ImageOff className="w-12 h-12 text-muted-foreground" />
@@ -47,14 +50,14 @@ export function EpisodeCard({ item, titleLine, detailLine, useSeriesImage }: Epi
                         <img
                             src={imageSrc}
                             alt={item.Name || t('no_title')}
-                            className="w-full h-full object-cover rounded-md group-hover:opacity-75 transition-all group-hover:scale-105"
+                            className="w-full h-full object-cover rounded-md transition-opacity"
                             onError={handleImageError}
                         />
                     )}
                     {progress > 0 && (
                         <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-700">
                             <div
-                                style={{ width: `${progress}%` }}
+                                style={{ width: `${Math.max(0, Math.min(100, progress))}%` }}
                                 className="h-full bg-brand transition-width"
                             />
                         </div>

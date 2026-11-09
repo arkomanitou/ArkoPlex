@@ -132,3 +132,5 @@ export * from './utils/basePath';
 export * from './utils/videoQuality';
 export * from './utils/sortCollectionItems';
 export * from './utils/quickConnectUrl';
+
+export * from './api/arkoplexConfig';

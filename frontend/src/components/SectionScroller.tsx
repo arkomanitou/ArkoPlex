@@ -31,7 +31,14 @@ export default function SectionScroller({
 
     const scroll = (offset: number) => {
         if (scrollRef.current) {
-            scrollRef.current.scrollBy({ left: offset, behavior: 'smooth' });
+            scrollRef.current.scrollBy({
+                left: offset,
+                behavior:
+                    window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
+                    document.documentElement.dataset.arkoMotion === 'off'
+                        ? 'auto'
+                        : 'smooth',
+            });
         }
     };
 
@@ -51,7 +58,7 @@ export default function SectionScroller({
     }, [items.length]);
 
     return (
-        <div className={className}>
+        <section className={`arko-section ${className || ''}`}>
             <div
                 className={
                     'flex items-center justify-between mb-3' +
@@ -90,6 +97,6 @@ export default function SectionScroller({
             >
                 {items}
             </div>
-        </div>
+        </section>
     );
 }

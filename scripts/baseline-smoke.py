@@ -108,6 +108,12 @@ def main():
             check('Go backend responds without configured Jellyfin', status == 200 and json.loads(body) == {'serverAddress': ''})
             status, body, _ = request(WEB + '/api/server-address')
             check('Vite preview forwards /api to Go', status == 200 and json.loads(body) == {'serverAddress': ''})
+            status, body, _ = request(WEB + '/api/arkoplex/config')
+            check('ArkoPlex configuration works without the Jellyfin plugin', status == 200 and json.loads(body) == {})
+            status, body, _ = request(WEB + '/api/health')
+            check('Application health reaches Go', status == 200 and json.loads(body).get('app') == 'ArkoPlex')
+            status, body, _ = request(WEB + '/api/arkoplex/config', method='PUT', data=b'{}')
+            check('Unconfigured instance refuses configuration writes', status == 403)
             status, body, _ = request(WEB + '/api/config')
             check('Legacy config endpoint responds', status == 200 and isinstance(json.loads(body), dict))
             status, body, _ = request(WEB + '/api/stats-consent')
@@ -118,6 +124,9 @@ def main():
             check('Unauthenticated theme mutation is rejected', status == 403)
 
             Path('.baseline/smoke-results.json').write_text(json.dumps(results, indent=2) + '\n')
+            if os.environ.get('BASELINE_KEEP_ALIVE') == '1':
+                print('Local QA ready at ' + WEB + '/login; stop this process to clean up.', flush=True)
+                signal.pause()
             # Optional real-browser checks, run only when Playwright is available.
             if os.environ.get('BASELINE_BROWSER_CHECK') == '1':
                 subprocess.run(['node', 'scripts/baseline-browser.cjs', WEB], cwd=ROOT, check=True)

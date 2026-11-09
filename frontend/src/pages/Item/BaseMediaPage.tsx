@@ -1,3 +1,4 @@
+import { CinematicSurface } from '@/components/arkoplex/CinematicSurface';
 import { getBackdropUrl, getLogoUrl } from '@pelagica/core';
 import { useEffect, useRef, useState } from 'react';
 import { ItemBackdropTrailerControls, ItemBackdropTrailerVideo } from './ItemBackdropTrailer';
@@ -57,15 +58,15 @@ const BaseMediaPage = ({
     };
 
     return (
-        <div className="relative">
+        <CinematicSurface key={itemId} className="arko-detail-surface relative">
             <div className="absolute top-0 left-0 h-[75vh] md:h-[85vh] w-full -z-10 overflow-hidden pointer-events-none select-none">
                 {!failedBackdrop && (
                     <div className="relative w-full h-full">
                         <img
                             className={[
                                 'h-full w-full object-cover',
-                                'transition-[filter,opacity] duration-700 ease-out',
-                                isBgLoaded ? 'blur-0 opacity-45' : 'blur-lg opacity-0',
+                                'arko-cinematic-image transition-opacity duration-300',
+                                isBgLoaded ? 'opacity-90' : 'opacity-0',
                             ].join(' ')}
                             src={getBackdropUrl(itemId || '')}
                             alt={name + ' Backdrop'}
@@ -127,7 +128,7 @@ const BaseMediaPage = ({
                     {children}
                 </div>
             </div>
-        </div>
+        </CinematicSurface>
     );
 };
 

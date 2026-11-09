@@ -1,0 +1,2 @@
+# Preserve the upstream font licenses verbatim, including their line-end spaces.
+frontend/public/fonts/*-OFL.txt -whitespace

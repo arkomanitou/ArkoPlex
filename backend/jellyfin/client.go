@@ -3,8 +3,12 @@ package jellyfin
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 )
@@ -18,32 +22,34 @@ type UserMeResponse struct {
 }
 
 func AuthenticateByToken(c fiber.Ctx) (bool, error) {
-	jellyfinURLRaw := c.Query("jellyfin_url")
+	// A client-supplied server must never be allowed to assert admin rights.
+	jellyfinURLRaw := os.Getenv("SERVER_ADDRESS")
 	if jellyfinURLRaw == "" {
-		return false, errors.New("missing jellyfin_url query parameter")
+		return false, errors.New("SERVER_ADDRESS must be configured before admin writes")
 	}
 
 	baseURL, err := url.Parse(jellyfinURLRaw)
-	if err != nil {
+	if err != nil || (baseURL.Scheme != "http" && baseURL.Scheme != "https") || baseURL.Host == "" || baseURL.User != nil || baseURL.RawQuery != "" || baseURL.Fragment != "" {
 		return false, errors.New("invalid jellyfin_url")
 	}
 
-	endpoint, _ := url.Parse("/Users/Me")
-	fullURL := baseURL.ResolveReference(endpoint)
+	baseURL.Path = strings.TrimRight(baseURL.Path, "/") + "/Users/Me"
+	baseURL.RawPath = ""
 
 	token := c.Get("Authorization")
 	if token == "" {
 		return false, errors.New("missing Authorization header")
 	}
 
-	req, err := http.NewRequest(http.MethodGet, fullURL.String(), nil)
+	req, err := http.NewRequest(http.MethodGet, baseURL.String(), nil)
 	if err != nil {
 		return false, err
 	}
 
 	req.Header.Set("Authorization", token)
 
-	res, err := http.DefaultClient.Do(req)
+	client := &http.Client{Timeout: 5 * time.Second, CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }}
+	res, err := client.Do(req)
 	if err != nil {
 		return false, err
 	}
@@ -57,7 +63,7 @@ func AuthenticateByToken(c fiber.Ctx) (bool, error) {
 	}
 
 	var user UserMeResponse
-	if err := json.NewDecoder(res.Body).Decode(&user); err != nil {
+	if err := json.NewDecoder(io.LimitReader(res.Body, 1024*1024)).Decode(&user); err != nil {
 		return false, err
 	}
 

@@ -55,6 +55,12 @@ func main() {
 
 	api.Get("/config", handlers.GetConfig)
 	api.Get("/server-address", handlers.GetServerAddress)
+	api.Get("/arkoplex/config", handlers.GetArkoPlexConfig)
+	// Local configuration always requires verified admin access, even in dev mode.
+	api.Put("/arkoplex/config", handlers.AuthMiddleware, handlers.PutArkoPlexConfig)
+	api.Get("/arkoplex/branding/logo/:mode", handlers.GetArkoPlexLogo)
+	api.Put("/arkoplex/branding/logo/:mode", handlers.AuthMiddleware, handlers.PutArkoPlexLogo)
+	api.Get("/health", func(c fiber.Ctx) error { return c.JSON(fiber.Map{"status": "ok", "app": "ArkoPlex"}) })
 	api.Get("/branding/logo/:mode", handlers.GetBrandingLogo)
 
 	api.Get("/themes", handlers.GetThemes)

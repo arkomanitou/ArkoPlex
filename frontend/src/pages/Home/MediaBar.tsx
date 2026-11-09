@@ -1,3 +1,5 @@
+import { ArkoHero } from '@/components/arkoplex/ArkoHero';
+import { getPlatform, useConfig } from '@pelagica/core';
 import FavoriteButton from '@/components/FavoriteButton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,7 +34,7 @@ interface MediaBarProps {
     fadeTop?: boolean;
 }
 
-const MediaBar = ({
+const LegacyMediaBar = ({
     className,
     size = 'medium',
     itemsConfig,
@@ -296,6 +298,15 @@ const MediaBar = ({
                 )}
             </Carousel>
         </div>
+    );
+};
+
+const MediaBar = (props: MediaBarProps) => {
+    const { config } = useConfig();
+    return getPlatform() !== 'web' || config.nightPulseEnabled === false ? (
+        <LegacyMediaBar {...props} />
+    ) : (
+        <ArkoHero {...props} />
     );
 };
 

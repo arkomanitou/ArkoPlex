@@ -1,6 +1,6 @@
 {
-    "name": "Pelagica",
-    "short_name": "Pelagica",
+    "name": "ArkoPlex",
+    "short_name": "ArkoPlex",
     "description": "Watch Movies and TV Shows from your Jellyfin server.",
     "display": "standalone",
     "categories": ["entertainment", "video", "movies", "tv"],
@@ -17,6 +17,6 @@
             "type": "image/png"
         }
     ],
-    "theme_color": "#181818",
-    "background_color": "#181818"
+    "theme_color": "#080f18",
+    "background_color": "#080f18"
 }

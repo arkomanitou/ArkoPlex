@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { RecommendationTypeFilter } from './useRecommendedItems';
 import { getServerUrl } from '../utils/localstorageCredentials';
 import { fetchPluginConfig, savePluginConfig } from '../api/pelagicaPlugin';
+import { fetchArkoPlexConfig, saveArkoPlexConfig } from '../api/arkoplexConfig';
+import { getPlatform } from '../api/jellyfinClient';
 
 interface BaseHomeScreenSection {
     /** Whether the section is enabled. Mostly intended for testing purposes */
@@ -260,6 +262,9 @@ export type PlayerControlsLogoSize = 'small' | 'medium' | 'large';
 export const PLAYER_CONTROLS_LOGO_SIZES: PlayerControlsLogoSize[] = ['small', 'medium', 'large'];
 
 export interface AppConfig {
+    /** Web-only ArkoPlex appearance and motion preference. */
+    nightPulseEnabled?: boolean;
+    nightPulseMotion?: 'system' | 'off';
     /** Optional URL for Streamystats integration */
     streamystatsUrl?: string;
     /** Optional URL for Seer integration */
@@ -404,28 +409,60 @@ const DEFAULT_CONFIG: AppConfig = {
     ],
 };
 
-const fetchConfig = async (): Promise<AppConfig> => {
-    const serverUrl = getServerUrl();
-    if (!serverUrl) {
-        return DEFAULT_CONFIG;
-    }
-
-    let data: AppConfig;
-    try {
-        data = await fetchPluginConfig(serverUrl);
-    } catch {
-        console.warn('Pelagica plugin config not available, using default configuration');
-        return DEFAULT_CONFIG;
-    }
-
-    // Merge with defaults to ensure all required fields exist
-    return {
-        ...DEFAULT_CONFIG,
-        ...data,
-        itemPage: {
-            ...DEFAULT_ITEM_PAGE_SETTINGS,
-            ...data.itemPage,
+const ARKOPLEX_DEFAULT_CONFIG: AppConfig = {
+    ...DEFAULT_CONFIG,
+    serverName: 'ArkoPlex',
+    nightPulseEnabled: true,
+    nightPulseMotion: 'system',
+    itemPage: { ...DEFAULT_ITEM_PAGE_SETTINGS, showWatchlistButton: false },
+    homeScreenSections: [
+        {
+            type: 'mediaBar',
+            size: 'large',
+            items: { sortBy: ['Random'], types: ['Movie', 'Series'], limit: 8 },
+            showFavoriteButton: true,
+            showWatchlistButton: false,
+            autoPlayTrailers: false,
         },
+        {
+            type: 'continueWatching',
+            title: 'On reprend ?',
+            titleLine: 'ItemTitleWithEpisodeInfo',
+            detailLine: ['TimeRemaining'],
+            accurateSorting: true,
+            limit: 20,
+        },
+        { type: 'recentlyAdded', limit: 20 },
+        {
+            type: 'items',
+            title: 'Vos favoris',
+            items: { isFavorite: true, types: ['Movie', 'Series'], limit: 20 },
+            detailFields: ['ReleaseYear'],
+        },
+    ],
+};
+
+const getDefaults = () => (getPlatform() === 'web' ? ARKOPLEX_DEFAULT_CONFIG : DEFAULT_CONFIG);
+
+const fetchConfig = async (): Promise<AppConfig> => {
+    const defaults = getDefaults();
+    const serverUrl = getServerUrl();
+    let data: AppConfig;
+    if (getPlatform() === 'web') {
+        // Served by this ArkoPlex instance; never reads or writes the Jellyfin plugin.
+        data = await fetchArkoPlexConfig();
+    } else {
+        if (!serverUrl) return defaults;
+        try {
+            data = await fetchPluginConfig(serverUrl);
+        } catch {
+            return defaults;
+        }
+    }
+    return {
+        ...defaults,
+        ...data,
+        itemPage: { ...DEFAULT_ITEM_PAGE_SETTINGS, ...defaults.itemPage, ...data.itemPage },
     };
 };
 
@@ -434,11 +471,10 @@ export const useConfig = () => {
         queryKey: ['config', getServerUrl()],
         queryFn: fetchConfig,
         staleTime: Infinity,
-        gcTime: 30 * 60 * 1000, // 30 minutes
+        gcTime: 30 * 60 * 1000,
     });
-
     return {
-        config: data ?? DEFAULT_CONFIG,
+        config: data ?? getDefaults(),
         loading: isLoading,
         error: error instanceof Error ? error.message : error ? String(error) : null,
     };
@@ -446,27 +482,32 @@ export const useConfig = () => {
 
 export const useUpdateConfig = () => {
     const queryClient = useQueryClient();
-
     const mutation = useMutation({
         mutationFn: async (newConfig: AppConfig): Promise<void> => {
+            if (getPlatform() === 'web') return saveArkoPlexConfig(newConfig);
             const serverUrl = getServerUrl();
-            if (!serverUrl) {
-                throw new Error('Server URL not set');
-            }
+            if (!serverUrl) throw new Error('Server URL not set');
             await savePluginConfig(serverUrl, newConfig);
         },
         onSuccess: (_data, newConfig) => {
-            queryClient.setQueryData(['config', getServerUrl()], {
-                ...DEFAULT_CONFIG,
+            const key = ['config', getServerUrl()];
+            // Do not replace newer optimistic edits with an older completed save.
+            if (
+                getPlatform() === 'web' &&
+                JSON.stringify(queryClient.getQueryData(key)) !== JSON.stringify(newConfig)
+            )
+                return;
+            queryClient.setQueryData(key, {
+                ...getDefaults(),
                 ...newConfig,
                 itemPage: {
                     ...DEFAULT_ITEM_PAGE_SETTINGS,
+                    ...getDefaults().itemPage,
                     ...newConfig.itemPage,
                 },
             });
         },
     });
-
     return {
         updateConfig: mutation.mutateAsync,
         loading: mutation.isPending,

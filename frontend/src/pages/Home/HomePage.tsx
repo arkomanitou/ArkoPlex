@@ -135,7 +135,11 @@ const HomePage = () => {
                                     ? userViews?.Items?.filter(
                                           (view) => view.Id && section.libraryIds!.includes(view.Id)
                                       )
-                                    : userViews?.Items;
+                                    : userViews?.Items?.filter(
+                                          (view) =>
+                                              view.CollectionType === 'movies' ||
+                                              view.CollectionType === 'tvshows'
+                                      );
                             return (
                                 <div key={index} className="flex flex-col gap-4">
                                     {userViews && filteredViews ? (

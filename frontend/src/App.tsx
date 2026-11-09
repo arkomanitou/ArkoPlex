@@ -8,7 +8,8 @@ import { KeyboardShortcuts } from './components/KeyboardShortcuts.tsx';
 import { MusicPlaybackProvider } from './context/MusicPlaybackProvider.tsx';
 import PelagicaThemeLoader from './components/PelagicaThemeProvider.tsx';
 import { Toaster } from './components/ui/sonner.tsx';
-import StatsConsentModal from './components/StatsConsentModal.tsx';
+import { ArkoAppearance } from './components/arkoplex/ArkoAppearance';
+import { isDesktopBuild } from './utils/desktopApp';
 import { ScrollToTop } from './components/ScrollToTop.tsx';
 import { DesktopDragRegion } from './components/DesktopDragRegion.tsx';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -42,7 +43,7 @@ const queryClient = new QueryClient();
 export default function App() {
     return (
         <QueryClientProvider client={queryClient}>
-            <ThemeProvider>
+            <ThemeProvider defaultTheme="dark" storageKey="arkoplex-ui-theme">
                 <MusicPlaybackProvider>
                     <SearchProvider>
                         <BrowserRouter basename={BASE_PATH || undefined}>
@@ -52,9 +53,9 @@ export default function App() {
                                     <DesktopDragRegion />
                                     <KeyboardShortcuts />
                                     <SearchCommand />
-                                    <PelagicaThemeLoader />
+                                    {isDesktopBuild && <PelagicaThemeLoader />}
+                                    <ArkoAppearance />
                                     <Toaster />
-                                    <StatsConsentModal />
                                     <Suspense fallback={null}>
                                         <Routes>
                                             <Route path="/" element={<HomePage />} />

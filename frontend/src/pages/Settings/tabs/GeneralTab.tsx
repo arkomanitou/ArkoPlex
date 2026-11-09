@@ -1,23 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import type { AppConfig, PlayerControlsLogoSize } from '@pelagica/core';
-import { PLAYER_CONTROLS_LOGO_SIZES, useStatsConsent } from '@pelagica/core';
-import { useSetStatsConsent } from '@pelagica/core';
+import { PLAYER_CONTROLS_LOGO_SIZES } from '@pelagica/core';
 import { StringInput, BooleanInput, RadioInput } from '../components/SettingsInputs';
-import { isDesktopApp } from '../../../utils/desktopApp';
-
-const StatsConsentSetting = () => {
-    const { t } = useTranslation('settings');
-    const { data: statsConsent } = useStatsConsent();
-    const setStatsConsent = useSetStatsConsent();
-
-    return (
-        <BooleanInput
-            label={t('usage_statistics_label')}
-            checked={statsConsent === 'granted'}
-            onChange={(checked) => setStatsConsent.mutate(checked)}
-        />
-    );
-};
 
 export const GeneralTab = ({
     config,
@@ -27,8 +11,6 @@ export const GeneralTab = ({
     saveConfig: (updater: (prev: AppConfig) => AppConfig) => void;
 }) => {
     const { t } = useTranslation('settings');
-
-    const isDesktop = isDesktopApp();
 
     return (
         <div className="max-w-200">
@@ -157,17 +139,6 @@ export const GeneralTab = ({
                     }))
                 }
             />
-            {!isDesktop && (
-                <>
-                    <h2 className="mt-6 mb-2 text-xl font-semibold leading-none tracking-tight">
-                        {t('usage_statistics')}
-                    </h2>
-                    <p className="mb-2 text-sm text-muted-foreground">
-                        {t('usage_statistics_description')}
-                    </p>
-                    <StatsConsentSetting />
-                </>
-            )}
         </div>
     );
 };

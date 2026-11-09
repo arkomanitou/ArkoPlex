@@ -1,3 +1,4 @@
+import { ArkoTopBar } from './arkoplex/ArkoTopBar';
 import { useState, useRef, useEffect, type ChangeEvent, type CSSProperties } from 'react';
 import { Link, useNavigate } from 'react-router';
 import {
@@ -758,7 +759,7 @@ const UserMenu = () => {
     );
 };
 
-const TopBar = ({ overlay = false }: { overlay?: boolean }) => {
+const LegacyTopBar = ({ overlay = false }: { overlay?: boolean }) => {
     const { t } = useTranslation('sidebar');
     const { config } = useConfig();
     const { data: views } = useUserViews();
@@ -1057,6 +1058,15 @@ const TopBar = ({ overlay = false }: { overlay?: boolean }) => {
                 <UserMenu />
             </div>
         </header>
+    );
+};
+
+const TopBar = ({ overlay = false }: { overlay?: boolean }) => {
+    const { config } = useConfig();
+    return config.nightPulseEnabled !== false && !isDesktopApp() ? (
+        <ArkoTopBar />
+    ) : (
+        <LegacyTopBar overlay={overlay} />
     );
 };
 

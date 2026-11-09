@@ -1,5 +1,5 @@
 # Stage 1: Build frontend
-FROM node:20-alpine AS frontend-builder
+FROM node:24.22.1-alpine AS frontend-builder
 
 WORKDIR /app
 
@@ -9,7 +9,7 @@ COPY tizen/package.json tizen/package.json
 COPY packages/core/package.json packages/core/package.json
 COPY packages/tv-frontend/package.json packages/tv-frontend/package.json
 COPY packages/tv-platform/package.json packages/tv-platform/package.json
-RUN npm install -g pnpm \
+RUN npm install -g pnpm@11.25.0 \
     && pnpm install --frozen-lockfile --filter pelagica...
 
 COPY packages/core packages/core
@@ -19,7 +19,7 @@ RUN BASE_PATH=$BASE_PATH pnpm --filter pelagica run build
 
 
 # Stage 2: Build backend
-FROM golang:1.25-alpine AS backend-builder
+FROM golang:1.25.14-alpine AS backend-builder
 
 WORKDIR /backend
 
@@ -65,6 +65,8 @@ RUN sed -i "s|__BASE_PATH__|${BASE_PATH}|g" \
 RUN mkdir -p /config
 
 ENV APP_VERSION=$APP_VERSION
+ENV ARKOPLEX_CONFIG_PATH=/config/arkoplex/config.json
+ENV COLLECTOR_STATS_CONSENT=false
 ENV PORT=4321
 ENV LOG_LEVEL=info
 ENV LOG_FILE=/config/logs/pelagica.log

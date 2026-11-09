@@ -6,7 +6,13 @@ import { RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import type { AppConfig } from '@pelagica/core';
 import { getServerUrl } from '@pelagica/core';
-import { getPluginLogoUrl, uploadPluginLogo } from '@pelagica/core';
+import {
+    getPluginLogoUrl,
+    uploadPluginLogo,
+    getArkoPlexLogoUrl,
+    uploadArkoPlexLogo,
+    getPlatform,
+} from '@pelagica/core';
 import FileDropInput from '@/components/FileDropInput';
 import { StringInput, BooleanInput } from '../components/SettingsInputs';
 
@@ -27,9 +33,10 @@ export const BrandingTab = ({
             throw new Error('Server URL not set');
         }
 
-        await uploadPluginLogo(serverUrl, mode, file);
+        if (getPlatform() === 'web') await uploadArkoPlexLogo(mode, file);
+        else await uploadPluginLogo(serverUrl, mode, file);
 
-        const uploadedUrl = `${getPluginLogoUrl(serverUrl, mode)}?v=${Date.now()}`;
+        const uploadedUrl = `${getPlatform() === 'web' ? getArkoPlexLogoUrl(mode) : getPluginLogoUrl(serverUrl, mode)}?v=${Date.now()}`;
         const key = mode === 'light' ? 'logoLightUrl' : 'logoDarkUrl';
         saveConfig((prev) => ({ ...prev, [key]: uploadedUrl }));
     };
@@ -71,7 +78,7 @@ export const BrandingTab = ({
             <div className="mt-3">
                 <Label className="mb-2 block">{t('upload_light_logo_label')}</Label>
                 <FileDropInput
-                    accept="image/*"
+                    accept="image/png,image/jpeg,image/webp"
                     value={logoLightFile}
                     onChange={(file) => {
                         setLogoLightFile(file);
@@ -114,7 +121,7 @@ export const BrandingTab = ({
             <div className="mt-3">
                 <Label className="mb-2 block">{t('upload_dark_logo_label')}</Label>
                 <FileDropInput
-                    accept="image/*"
+                    accept="image/png,image/jpeg,image/webp"
                     value={logoDarkFile}
                     onChange={(file) => {
                         setLogoDarkFile(file);

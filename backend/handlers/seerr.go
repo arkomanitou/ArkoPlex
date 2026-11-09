@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"pelagica-backend/models"
+	"pelagica-backend/services"
 
 	"github.com/gofiber/fiber/v3"
 )
@@ -19,37 +20,19 @@ import (
 const seerSessionCookieName = "seer_session"
 
 func getSeerURL(c fiber.Ctx) (string, error) {
-	if _, err := serverKeyFromRequest(c); err != nil {
+	cfgData, err := services.ReadArkoPlexConfig()
+	if err != nil {
 		return "", err
 	}
-
-	jellyfinURL := strings.TrimRight(c.Query("jellyfin_url"), "/")
-
-	resp, err := http.Get(jellyfinURL + "/Pelagica/Config")
-	if err != nil {
-		return "", errors.New("failed to read config")
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", errors.New("failed to read config")
-	}
-
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", errors.New("failed to read config")
-	}
-
-	var cfg models.AppConfig
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		return "", errors.New("failed to parse config")
-	}
-
-	if cfg.SeerrURL == "" {
+	raw, ok := cfgData["seerrUrl"]
+	if !ok {
 		return "", errors.New("seer URL not configured")
 	}
-
-	return strings.TrimRight(cfg.SeerrURL, "/"), nil
+	var address string
+	if err := json.Unmarshal(raw, &address); err != nil || address == "" || !safeConfigURL(address, false) {
+		return "", errors.New("seer URL not configured")
+	}
+	return strings.TrimRight(address, "/"), nil
 }
 
 type seerLoginRequest struct {

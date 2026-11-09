@@ -51,10 +51,10 @@ const MoviePage = ({ item, config }: MoviePageProps) => {
                 (item.LocalTrailerCount ?? 0) > 0 && !!config.itemPage?.autoPlayTrailers
             }
         >
-            <div className="pt-24 sm:pt-32 pb-12 mx-auto w-full flex flex-col gap-12">
+            <div className="arko-media-layout pt-24 sm:pt-32 pb-12 mx-auto w-full flex flex-col gap-12">
                 <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 items-start relative z-10 w-full">
                     {/* Left Column (Poster) */}
-                    <div className="w-48 sm:w-64 md:w-72 lg:w-80 shrink-0 mx-auto lg:mx-0">
+                    <div className="arko-detail-poster w-48 sm:w-64 md:w-72 lg:w-80 shrink-0 mx-auto lg:mx-0">
                         <div className="relative aspect-2/3 w-full rounded-xl overflow-hidden shadow-2xl shadow-black/85 border border-white/10 bg-muted flex items-center justify-center">
                             {!postersFailed ? (
                                 <>
@@ -68,10 +68,8 @@ const MoviePage = ({ item, config }: MoviePageProps) => {
                                         alt={item.Name + ' Primary'}
                                         className={[
                                             'object-cover rounded-xl w-full h-full relative z-10',
-                                            'transition-[filter,opacity] duration-700 ease-out',
-                                            isPosterLoaded
-                                                ? 'blur-0 opacity-100'
-                                                : 'blur-md opacity-0',
+                                            'transition-opacity duration-300',
+                                            isPosterLoaded ? 'opacity-100' : 'opacity-0',
                                         ].join(' ')}
                                         onLoad={() => setIsPosterLoaded(true)}
                                         onError={() => setPostersFailed(true)}
@@ -103,7 +101,7 @@ const MoviePage = ({ item, config }: MoviePageProps) => {
                         <DetailBadges item={item} appConfig={config} />
 
                         {/* Actions */}
-                        <div className="flex flex-wrap gap-2.5 items-center mt-2">
+                        <div className="arko-media-actions flex flex-wrap gap-2.5 items-center mt-2">
                             <SourcePickerButton
                                 itemId={item.Id || ''}
                                 mediaSources={item.MediaSources}

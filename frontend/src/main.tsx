@@ -6,12 +6,13 @@ import { VERSION } from './utils/version.ts';
 
 import './index.css';
 import './theme.css';
+import './arkoplex.css';
 import '@pelagica/core/i18n';
 
 if (isDesktopBuild) {
-    setClientInfo({ name: 'Pelagica Desktop', version: VERSION, platform: 'desktop' });
+    setClientInfo({ name: 'ArkoPlex Desktop', version: VERSION, platform: 'desktop' });
 } else {
-    setClientInfo({ name: 'Pelagica', version: VERSION });
+    setClientInfo({ name: 'ArkoPlex', version: VERSION });
 }
 
 createRoot(document.getElementById('root')!).render(<App />);

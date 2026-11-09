@@ -105,9 +105,14 @@ const ScrollableSectionPoster = forwardRef<HTMLAnchorElement, ScrollableSectionP
 
         if (posterFailed) {
             return (
-                <Link ref={ref} to={linkTo} className={className} {...rest}>
+                <Link
+                    ref={ref}
+                    to={linkTo}
+                    className={`arko-poster-link ${className || ''}`}
+                    {...rest}
+                >
                     <div
-                        className={`relative overflow-hidden ${roundedClass} group ${posterClasses} bg-muted flex items-center justify-center`}
+                        className={`arko-poster-art relative overflow-hidden ${roundedClass} group ${posterClasses} bg-muted flex items-center justify-center`}
                     >
                         <ImageOff className="text-muted-foreground" size={32} />
                         <WatchedStateBadge
@@ -126,9 +131,9 @@ const ScrollableSectionPoster = forwardRef<HTMLAnchorElement, ScrollableSectionP
         }
 
         return (
-            <Link ref={ref} to={linkTo} className={className} {...rest}>
+            <Link ref={ref} to={linkTo} className={`arko-poster-link ${className || ''}`} {...rest}>
                 <div
-                    className={`relative overflow-hidden ${roundedClass} group ${posterClasses}`}
+                    className={`arko-poster-art relative overflow-hidden ${roundedClass} group ${posterClasses}`}
                     onMouseEnter={() => setHovered(true)}
                     onMouseLeave={() => setHovered(false)}
                 >
@@ -144,7 +149,7 @@ const ScrollableSectionPoster = forwardRef<HTMLAnchorElement, ScrollableSectionP
                                   )
                         }
                         alt={itemName || item?.Name || ''}
-                        className={`${minPosterClasses} ${posterClasses} object-cover ${roundedClass} group-hover:opacity-75 transition-all group-hover:scale-105 transform-gpu will-change-transform z-10`}
+                        className={`${minPosterClasses} ${posterClasses} object-cover ${roundedClass} transition-opacity z-10`}
                         loading="lazy"
                         onError={() => setPosterFailed(true)}
                     />
@@ -191,7 +196,7 @@ const ScrollableSectionPoster = forwardRef<HTMLAnchorElement, ScrollableSectionP
                     )}
                 </div>
                 <p
-                    className={`mt-2 text-sm line-clamp-1 text-ellipsis break-all ${maxTextWidth} ${isArtist ? 'text-center w-full' : ''}`}
+                    className={`arko-poster-title mt-2 text-sm line-clamp-1 text-ellipsis break-all ${maxTextWidth} ${isArtist ? 'text-center w-full' : ''}`}
                 >
                     {itemName || item?.Name || ''}
                 </p>
