@@ -358,20 +358,62 @@
     bottom: 44px;
     display: flex;
     align-items: center;
-    gap: 12px;
-    font:
-        11px ui-monospace,
-        monospace;
-    color: #d9e9ed;
+    gap: 8px;
+    max-width: calc(100% - 48px);
+    padding: 0 6px;
+    border: 1px solid #49616b80;
+    border-radius: 28px;
+    background: #080f18bd;
 }
-.arko-hero-pager > button {
+.arko-hero-dots {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+.arko-hero-dot,
+.arko-hero-rotation {
     display: grid;
     place-items: center;
-    width: 44px;
+    flex: 0 0 32px;
+    width: 32px;
     height: 44px;
-    border: 1px solid #49616b;
-    background: #0d2230ad;
+    border: 0;
+    border-radius: 22px;
+    background: transparent;
     color: #d9fffa;
+}
+.arko-hero-dot > span {
+    width: 6px;
+    height: 6px;
+    border-radius: 8px;
+    background: #a6bcc8;
+}
+.arko-hero-dot[aria-current='true'] > span {
+    width: 20px;
+    height: 8px;
+    background: #f5d442;
+    box-shadow: 0 0 12px #f5d44233;
+}
+.arko-hero-dot:focus-visible,
+.arko-hero-rotation:focus-visible {
+    outline: 2px solid #43e8df;
+    outline-offset: -3px;
+}
+.arko-hero-dot:hover,
+.arko-hero-rotation:hover:not(:disabled) {
+    background: #43e8df18;
+}
+.arko-hero-rotation {
+    flex-basis: 40px;
+    width: 40px;
+    border-left: 1px solid #49616b80;
+    border-radius: 0;
+}
+.arko-hero-rotation:disabled {
+    opacity: 0.45;
+    cursor: default;
 }
 .arko-hero-placeholder {
     display: flex;
@@ -530,6 +572,14 @@
         transform: translateX(105%);
     }
 }
+@keyframes arko-hero-reveal {
+    from {
+        opacity: 0.35;
+    }
+    to {
+        opacity: 1;
+    }
+}
 @keyframes arko-signature {
     from {
         transform: scaleX(0.1);
@@ -553,6 +603,15 @@
     }
 }
 @media (prefers-reduced-motion: no-preference) {
+    .arkoplex:not([data-arko-motion='off']) .arko-motion .arko-hero-backdrop > img {
+        animation: arko-hero-reveal 380ms ease-out both;
+    }
+    .arkoplex:not([data-arko-motion='off']) .arko-motion .arko-hero-dot > span {
+        transition:
+            width 180ms ease-out,
+            height 180ms ease-out,
+            background-color 180ms ease-out;
+    }
     .arkoplex:not([data-arko-motion='off']) .arko-motion .arko-hero-title:after {
         animation: arko-signature 420ms ease-out both;
     }
@@ -646,11 +705,13 @@
     .arko-hero-pager {
         right: 20px;
         bottom: 10px;
-        gap: 5px;
+        gap: 4px;
+        max-width: calc(100% - 40px);
+        padding-inline: 4px;
     }
-    .arko-hero-pager > button {
-        width: 40px;
-        height: 40px;
+    .arko-hero-dot {
+        flex-basis: 28px;
+        width: 28px;
     }
     .arko-light-trace,
     .arko-ambient {

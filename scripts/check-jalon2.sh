@@ -12,4 +12,6 @@ echo 'Go behavior tests and vet: OK'
 echo 'Frontend lint and formatting: OK'
 node scripts/check-frontend.mjs > .baseline/jalon2-ssr-tests.log 2>&1
 echo 'Frontend HTML integration checks: OK'
+node --test scripts/check-hero-rotation.mjs > .baseline/hero-rotation-tests.log 2>&1
+echo 'Hero rotation timing and pause checks: OK'
 python3 scripts/baseline-smoke.py
