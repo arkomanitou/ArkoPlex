@@ -11,6 +11,18 @@ export function useRequestSeerrItem() {
             queryClient.invalidateQueries({
                 queryKey: ['seerrItemDetails', payload.mediaType, payload.mediaId],
             });
+            for (const key of [
+                'discoveryFeed',
+                'discoveryRequests',
+                'personalizedDiscovery',
+                'seerrTrending',
+                'seerrPopularMovies',
+                'seerrPopularSeries',
+                'seerrRecommendations',
+                'seerrSearch',
+            ]) {
+                queryClient.invalidateQueries({ queryKey: [key] });
+            }
         },
     });
 }

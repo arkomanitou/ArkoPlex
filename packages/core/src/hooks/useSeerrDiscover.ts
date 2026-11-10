@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import type { SeerrSearchResultItem } from '../api/seerr/types';
-import { getServerUrl } from '../utils/localstorageCredentials';
+import { getServerUrl, getUserId } from '../utils/localstorageCredentials';
 import {
     getSeerrPopularMovies,
     getSeerrPopularSeries,
@@ -16,7 +16,7 @@ const discoverQueryOptions = {
 
 export function useSeerrTrending(enabled: boolean) {
     return useQuery<SeerrSearchResultItem[]>({
-        queryKey: ['seerrTrending', getServerUrl()],
+        queryKey: ['seerrTrending', getServerUrl(), getUserId()],
         queryFn: getSeerrTrending,
         enabled,
         ...discoverQueryOptions,
@@ -25,7 +25,7 @@ export function useSeerrTrending(enabled: boolean) {
 
 export function useSeerrPopularMovies(enabled: boolean) {
     return useQuery<SeerrSearchResultItem[]>({
-        queryKey: ['seerrPopularMovies', getServerUrl()],
+        queryKey: ['seerrPopularMovies', getServerUrl(), getUserId()],
         queryFn: getSeerrPopularMovies,
         enabled,
         ...discoverQueryOptions,
@@ -34,7 +34,7 @@ export function useSeerrPopularMovies(enabled: boolean) {
 
 export function useSeerrPopularSeries(enabled: boolean) {
     return useQuery<SeerrSearchResultItem[]>({
-        queryKey: ['seerrPopularSeries', getServerUrl()],
+        queryKey: ['seerrPopularSeries', getServerUrl(), getUserId()],
         queryFn: getSeerrPopularSeries,
         enabled,
         ...discoverQueryOptions,

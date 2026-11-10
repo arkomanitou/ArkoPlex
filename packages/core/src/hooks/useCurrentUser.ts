@@ -1,3 +1,4 @@
+import { getServerUrl, getUserId } from '../utils/localstorageCredentials';
 import { getApi } from '../api/getApi';
 import { useQuery } from '@tanstack/react-query';
 import { getUserApi } from '@jellyfin/sdk/lib/utils/api/user-api';
@@ -5,7 +6,7 @@ import { getRetryConfig } from '../utils/authErrorHandler';
 
 export function useCurrentUser() {
     return useQuery({
-        queryKey: ['currentUser'],
+        queryKey: ['currentUser', getServerUrl(), getUserId()],
         queryFn: async () => {
             const api = getApi();
             const userApi = getUserApi(api);

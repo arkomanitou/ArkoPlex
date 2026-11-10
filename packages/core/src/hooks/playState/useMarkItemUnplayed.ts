@@ -23,6 +23,7 @@ export function useMarkItemUnplayed() {
             });
         },
         onSuccess: (_, { itemId, userId }) => {
+            queryClient.invalidateQueries({ queryKey: ['personalizedDiscovery'] });
             queryClient.invalidateQueries({
                 queryKey: ['userLibraryItem', itemId, userId],
             });

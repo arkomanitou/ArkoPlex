@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import type { SeerrItemDetails, SeerrMediaType } from '../api/seerr/types';
-import { getServerUrl } from '../utils/localstorageCredentials';
+import { getServerUrl, getUserId } from '../utils/localstorageCredentials';
 import { getSeerrItemDetails } from '../api/seerr/details';
 
 export function useSeerrItemDetails(
@@ -9,7 +9,7 @@ export function useSeerrItemDetails(
     enabled: boolean
 ) {
     return useQuery<SeerrItemDetails>({
-        queryKey: ['seerrItemDetails', mediaType, id, getServerUrl()],
+        queryKey: ['seerrItemDetails', mediaType, id, getServerUrl(), getUserId()],
         queryFn: () => getSeerrItemDetails(mediaType!, id!),
         enabled: enabled && !!mediaType && id !== undefined,
         refetchOnWindowFocus: false,

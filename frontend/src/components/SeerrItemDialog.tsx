@@ -348,6 +348,7 @@ const SeerrItemDialog = ({ item, open, onOpenChange }: SeerrItemDialogProps) => 
                                                         >
                                                             <td className="px-3 py-2">
                                                                 <Switch
+                                                                    aria-label={label}
                                                                     checked={
                                                                         isSeasonRequestable
                                                                             ? !deselectedSeasons.has(

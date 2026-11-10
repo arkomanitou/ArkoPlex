@@ -2,7 +2,7 @@ name: ArkoPlex isolated Docker checks
 
 on:
   pull_request:
-    branches: ['arkoplex/security-hardening']
+    branches: ['arkoplex/security-hardening', 'arkoplex/seerr-https-docker']
   workflow_dispatch:
 
 permissions:
