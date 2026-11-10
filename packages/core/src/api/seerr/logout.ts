@@ -10,7 +10,7 @@ export async function logoutFromSeerr(disableAutoLogin = false): Promise<void> {
             withBasePath(
                 '/api/seerr/logout' + (server ? '?jellyfin_url=' + encodeURIComponent(server) : '')
             ),
-            { method: 'POST', credentials: 'include' }
+            { method: 'POST', credentials: 'include', headers: { 'X-ArkoPlex-Request': '1' } }
         );
     } catch (e) {
         // seerr logout is best effort and shouldn't block jellyfin logout

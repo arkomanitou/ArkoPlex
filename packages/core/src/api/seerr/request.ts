@@ -7,7 +7,7 @@ export async function requestSeerrItem(payload: SeerrRequestPayload): Promise<vo
         withBasePath(`/api/seerr/request?jellyfin_url=${encodeURIComponent(getServerUrl() || '')}`),
         {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'X-ArkoPlex-Request': '1' },
             body: JSON.stringify(payload),
         }
     );

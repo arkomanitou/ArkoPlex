@@ -40,7 +40,6 @@ RUN CGO_ENABLED=0 \
 FROM nginx:alpine
 
 ARG APP_VERSION
-ARG COLLECTOR_PING_TOKEN
 
 # runtime essentials
 RUN apk add --no-cache ca-certificates tzdata
@@ -57,6 +56,10 @@ COPY --from=backend-builder /backend/default.theme.json /default.theme.json
 
 # nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY docker/security-headers.conf /etc/nginx/arkoplex-security-headers.conf
+COPY docker/entrypoint.sh /arkoplex-entrypoint.sh
+COPY LICENSE /usr/share/licenses/arkoplex/LICENSE
+RUN chmod 755 /arkoplex-entrypoint.sh
 RUN sed -i "s|__BASE_PATH__|${BASE_PATH}|g" \
         /etc/nginx/conf.d/default.conf \
         /usr/share/nginx/html${BASE_PATH}/manifest.webmanifest
@@ -67,6 +70,8 @@ RUN mkdir -p /config
 ENV APP_VERSION=$APP_VERSION
 ENV ARKOPLEX_CONFIG_PATH=/config/arkoplex/config.json
 ENV COLLECTOR_STATS_CONSENT=false
+ENV BASE_PATH=$BASE_PATH
+ENV HOST=127.0.0.1
 ENV PORT=4321
 ENV LOG_LEVEL=info
 ENV LOG_FILE=/config/logs/pelagica.log
@@ -76,11 +81,15 @@ ENV STUDIOS_DB_DIR=/config/studios_db
 ENV DEFAULT_THEME_PATH=/default.theme.json
 ENV THEMES_REPO_BASE_URL=https://themes.pelagica.app/
 ENV COLLECTOR_PING_BASE_URL=https://stats.pelagica.app
-ENV COLLECTOR_PING_TOKEN=$COLLECTOR_PING_TOKEN
 ENV COLLECTOR_INSTANCE_ID_FILE=/config/instance_id
 ENV COLLECTOR_STATS_CONSENT_FILE=/config/stats_consent
 
 EXPOSE 80
 
-# start backend + nginx
-CMD ["/bin/sh", "-c", "exec /server & exec nginx -g 'daemon off;'"]
+# Check both nginx and the backend; the supervisor stops the container if either exits.
+HEALTHCHECK --interval=10s --timeout=4s --start-period=15s --retries=3 \
+    CMD wget -q -T 3 -O /dev/null http://127.0.0.1/health || exit 1
+
+# The nginx base image defaults to SIGQUIT; our supervisor receives SIGTERM.
+STOPSIGNAL SIGTERM
+CMD ["/arkoplex-entrypoint.sh"]

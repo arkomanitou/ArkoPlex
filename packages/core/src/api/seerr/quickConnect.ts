@@ -25,6 +25,7 @@ export async function isSeerrQuickConnectSupported(server: string): Promise<bool
 export async function loginToSeerrWithQuickConnect(server: string): Promise<void> {
     const initiateResponse = await fetch(seerrQuickConnectUrl('initiate', server), {
         method: 'POST',
+        headers: { 'X-ArkoPlex-Request': '1' },
         credentials: 'include',
     });
     if (!initiateResponse.ok) {
@@ -36,7 +37,7 @@ export async function loginToSeerrWithQuickConnect(server: string): Promise<void
 
     const authenticateResponse = await fetch(seerrQuickConnectUrl('authenticate', server), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-ArkoPlex-Request': '1' },
         credentials: 'include',
         body: JSON.stringify({ secret }),
     });

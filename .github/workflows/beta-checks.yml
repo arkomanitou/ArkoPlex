@@ -1,0 +1,97 @@
+name: ArkoPlex beta checks
+
+on:
+  push:
+    branches: [main, 'arkoplex/**']
+  pull_request:
+    branches: [main, 'arkoplex/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Install pinned pnpm
+        run: npm install --global "$(node -p 'require("./package.json").packageManager')"
+      - name: Install locked web dependencies
+        run: pnpm install --frozen-lockfile --filter pelagica...
+      - name: TypeScript and Vite build
+        run: pnpm --filter pelagica run build
+      - name: ESLint
+        run: pnpm --filter pelagica run lint
+      - name: Prettier
+        run: pnpm --filter pelagica run format:check
+      - name: HTML SSR checks (no browser)
+        run: node scripts/check-frontend.mjs
+      - name: Rotation timing and pause tests (fake clock)
+        run: node --test scripts/check-hero-rotation.mjs
+  discovery-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - run: npm install --global "$(node -p 'require("./package.json").packageManager')"
+      - run: pnpm install --frozen-lockfile --filter pelagica...
+      - run: pnpm --filter pelagica run build > "$RUNNER_TEMP/arkoplex-web-build.log" 2>&1
+      - name: Install pinned browser tooling outside the application
+        run: |
+          npm install --prefix "$RUNNER_TEMP/arkoplex-browser" --no-audit --no-fund --ignore-scripts playwright@1.62.1
+          "$RUNNER_TEMP/arkoplex-browser/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Exercise discovery with isolated account and media fixtures
+        env:
+          ARKOPLEX_BROWSER_PACKAGE: ${{ runner.temp }}/arkoplex-browser
+        run: node scripts/check-discovery-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: discovery-browser-previews
+          path: browser-artifacts/
+          retention-days: 7
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GOTOOLCHAIN: local
+      CGO_ENABLED: '0'
+      GOFLAGS: -mod=readonly
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: .go-version
+          cache-dependency-path: backend/go.sum
+      - run: go mod download
+      - run: go mod verify
+      - run: go build -trimpath -buildvcs=false -o "${RUNNER_TEMP}/arkoplex-server" .
+      - run: go test ./...
+      - run: go vet ./...
+      - name: Go race detector (isolated fixtures)
+        env:
+          CGO_ENABLED: '1'
+        run: go test -race ./...
+

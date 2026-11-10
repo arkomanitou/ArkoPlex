@@ -8,6 +8,9 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"pelagica-backend/upstream"
+	"pelagica-backend/websecurity"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,6 +21,8 @@ import (
 )
 
 const seerSessionCookieName = "seer_session"
+
+var seerHTTPClient = upstream.NewClient(15 * time.Second)
 
 func getSeerURL(c fiber.Ctx) (string, error) {
 	cfgData, err := services.ReadArkoPlexConfig()
@@ -59,14 +64,14 @@ func SeerLogin(c fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(models.APIError{Error: "Failed to build Seer request"})
 	}
 
-	resp, err := http.Post(seerURL+"/api/v1/auth/jellyfin", "application/json", bytes.NewReader(payload))
+	resp, err := seerPost(c, seerURL+"/api/v1/auth/jellyfin", "application/json", bytes.NewReader(payload))
 	if err != nil {
 		slog.Error("Seer login failed", "error", err)
 		return c.Status(fiber.StatusBadGateway).JSON(models.APIError{Error: "Failed to reach Seer"})
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := upstream.ReadAll(resp.Body, upstream.MaxResponseBytes)
 	if err != nil {
 		return c.Status(fiber.StatusBadGateway).JSON(models.APIError{Error: "Failed to read Seer response"})
 	}
@@ -75,26 +80,34 @@ func SeerLogin(c fiber.Ctx) error {
 		return c.Status(resp.StatusCode).Type("json").Send(body)
 	}
 
-	setSeerSessionCookie(c, resp)
+	if err := setSeerSessionCookie(c, resp); err != nil {
+		return c.Status(503).JSON(models.APIError{Error: "Invalid browser security configuration"})
+	}
 
 	return c.Status(fiber.StatusOK).Type("json").Send(body)
 }
 
-func setSeerSessionCookie(c fiber.Ctx, resp *http.Response) {
+func setSeerSessionCookie(c fiber.Ctx, resp *http.Response) error {
+	policy, err := websecurity.FromEnv()
+	if err != nil {
+		return err
+	}
 	for _, cookie := range resp.Cookies() {
 		if cookie.Name != "connect.sid" {
 			continue
 		}
-		c.Cookie(&fiber.Cookie{
-			Name:     seerSessionCookieName,
-			Value:    cookie.Value,
-			Path:     "/api/seerr",
-			HTTPOnly: true,
-			SameSite: "Lax",
-			Expires:  cookie.Expires,
+		if policy.BasePath != "" {
+			expireSeerCookie(c, "/api/seerr", policy.SecureCookie(c.RequestCtx().IsTLS()))
+		}
+		appendSeerCookie(c, &http.Cookie{
+			Name: seerSessionCookieName, Value: cookie.Value,
+			Path: policy.SeerrCookiePath(), HttpOnly: true, SameSite: http.SameSiteLaxMode,
+			Secure:  policy.SecureCookie(c.RequestCtx().IsTLS()),
+			Expires: cookie.Expires, MaxAge: cookie.MaxAge,
 		})
-		return
+		return nil
 	}
+	return nil
 }
 
 func SeerQuickConnectInitiate(c fiber.Ctx) error {
@@ -103,14 +116,14 @@ func SeerQuickConnectInitiate(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadGateway).JSON(models.APIError{Error: "Seer not configured"})
 	}
 
-	resp, err := http.Post(seerURL+"/api/v1/auth/jellyfin/quickconnect/initiate", "application/json", nil)
+	resp, err := seerPost(c, seerURL+"/api/v1/auth/jellyfin/quickconnect/initiate", "application/json", nil)
 	if err != nil {
 		slog.Error("Seer quick connect initiate failed", "error", err)
 		return c.Status(fiber.StatusBadGateway).JSON(models.APIError{Error: "Failed to reach Seer"})
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := upstream.ReadAll(resp.Body, upstream.MaxResponseBytes)
 	if err != nil {
 		return c.Status(fiber.StatusBadGateway).JSON(models.APIError{Error: "Failed to read Seer response"})
 	}
@@ -140,14 +153,14 @@ func SeerQuickConnectAuthenticate(c fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(models.APIError{Error: "Failed to build Seer request"})
 	}
 
-	resp, err := http.Post(seerURL+"/api/v1/auth/jellyfin/quickconnect/authenticate", "application/json", bytes.NewReader(payload))
+	resp, err := seerPost(c, seerURL+"/api/v1/auth/jellyfin/quickconnect/authenticate", "application/json", bytes.NewReader(payload))
 	if err != nil {
 		slog.Error("Seer quick connect authenticate failed", "error", err)
 		return c.Status(fiber.StatusBadGateway).JSON(models.APIError{Error: "Failed to reach Seer"})
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := upstream.ReadAll(resp.Body, upstream.MaxResponseBytes)
 	if err != nil {
 		return c.Status(fiber.StatusBadGateway).JSON(models.APIError{Error: "Failed to read Seer response"})
 	}
@@ -156,7 +169,9 @@ func SeerQuickConnectAuthenticate(c fiber.Ctx) error {
 		return c.Status(resp.StatusCode).Type("json").Send(body)
 	}
 
-	setSeerSessionCookie(c, resp)
+	if err := setSeerSessionCookie(c, resp); err != nil {
+		return c.Status(503).JSON(models.APIError{Error: "Invalid browser security configuration"})
+	}
 
 	return c.Status(fiber.StatusOK).Type("json").Send(body)
 }
@@ -173,31 +188,45 @@ func GetSeerQuickConnectSupported(c fiber.Ctx) error {
 		return c.JSON(seerQuickConnectSupportedResponse{Supported: false})
 	}
 
-	resp, err := http.Get(seerURL + "/api/v1/auth/jellyfin/quickconnect/check?secret=-")
+	resp, err := seerGet(c, seerURL+"/api/v1/auth/jellyfin/quickconnect/check?secret=-")
 	if err != nil {
 		return c.JSON(seerQuickConnectSupportedResponse{Supported: false})
 	}
 	defer resp.Body.Close()
-	io.Copy(io.Discard, resp.Body)
+	_, err = upstream.ReadAll(resp.Body, upstream.MaxResponseBytes)
+	if err != nil {
+		return c.JSON(seerQuickConnectSupportedResponse{Supported: false})
+	}
 
 	return c.JSON(seerQuickConnectSupportedResponse{Supported: resp.StatusCode == http.StatusBadRequest})
 }
 
-func clearSeerSessionCookie(c fiber.Ctx) {
-	c.Cookie(&fiber.Cookie{
-		Name:     seerSessionCookieName,
-		Value:    "",
-		Path:     "/api/seerr",
-		HTTPOnly: true,
-		SameSite: "Lax",
-		Expires:  time.Unix(0, 0),
+func expireSeerCookie(c fiber.Ctx, path string, secure bool) {
+	appendSeerCookie(c, &http.Cookie{
+		Name: seerSessionCookieName, Value: "", Path: path,
+		HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: secure,
+		Expires: time.Unix(0, 0), MaxAge: -1,
 	})
+}
+
+func clearSeerSessionCookie(c fiber.Ctx) error {
+	policy, err := websecurity.FromEnv()
+	if err != nil {
+		return err
+	}
+	expireSeerCookie(c, policy.SeerrCookiePath(), policy.SecureCookie(c.RequestCtx().IsTLS()))
+	if policy.BasePath != "" {
+		expireSeerCookie(c, "/api/seerr", policy.SecureCookie(c.RequestCtx().IsTLS()))
+	}
+	return nil
 }
 
 func SeerLogout(c fiber.Ctx) error {
 	session := c.Cookies(seerSessionCookieName)
 
-	clearSeerSessionCookie(c)
+	if err := clearSeerSessionCookie(c); err != nil {
+		return c.Status(503).JSON(models.APIError{Error: "Invalid browser security configuration"})
+	}
 
 	if session == "" {
 		return c.SendStatus(fiber.StatusNoContent)
@@ -208,14 +237,14 @@ func SeerLogout(c fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusNoContent)
 	}
 
-	req, err := http.NewRequest(http.MethodPost, seerURL+"/api/v1/auth/logout", nil)
+	req, err := http.NewRequestWithContext(c.Context(), http.MethodPost, seerURL+"/api/v1/auth/logout", nil)
 	if err != nil {
 		slog.Error("Failed to build Seer logout request", "error", err)
 		return c.SendStatus(fiber.StatusNoContent)
 	}
 	req.AddCookie(&http.Cookie{Name: "connect.sid", Value: session})
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := seerHTTPClient.Do(req)
 	if err != nil {
 		slog.Error("Seer logout failed", "error", err)
 		return c.SendStatus(fiber.StatusNoContent)
@@ -231,7 +260,7 @@ func proxySeerRequest(c fiber.Ctx, seerPath string) error {
 		return c.Status(fiber.StatusBadGateway).JSON(models.APIError{Error: "Seer not configured"})
 	}
 
-	req, err := http.NewRequest(http.MethodGet, seerURL+seerPath, nil)
+	req, err := http.NewRequestWithContext(c.Context(), http.MethodGet, seerURL+seerPath, nil)
 	if err != nil {
 		slog.Error("Failed to build Seer request", "error", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(models.APIError{Error: "Failed to build Seer request"})
@@ -241,14 +270,14 @@ func proxySeerRequest(c fiber.Ctx, seerPath string) error {
 		req.AddCookie(&http.Cookie{Name: "connect.sid", Value: session})
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := seerHTTPClient.Do(req)
 	if err != nil {
 		slog.Error("Seer request failed", "error", err)
 		return c.Status(fiber.StatusBadGateway).JSON(models.APIError{Error: "Failed to reach Seer"})
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := upstream.ReadAll(resp.Body, upstream.MaxResponseBytes)
 	if err != nil {
 		slog.Error("Failed to read Seer response", "error", err)
 		return c.Status(fiber.StatusBadGateway).JSON(models.APIError{Error: "Failed to read Seer response"})
@@ -283,15 +312,27 @@ func GetSeerPersonCombinedCredits(c fiber.Ctx) error {
 }
 
 func GetSeerDiscoverTrending(c fiber.Ctx) error {
-	return proxySeerRequest(c, "/api/v1/discover/trending")
+	return proxySeerDiscover(c, "trending")
 }
 
 func GetSeerDiscoverMovies(c fiber.Ctx) error {
-	return proxySeerRequest(c, "/api/v1/discover/movies")
+	return proxySeerDiscover(c, "movies")
 }
 
 func GetSeerDiscoverTv(c fiber.Ctx) error {
-	return proxySeerRequest(c, "/api/v1/discover/tv")
+	return proxySeerDiscover(c, "tv")
+}
+
+func proxySeerDiscover(c fiber.Ctx, kind string) error {
+	page := 1
+	if raw := c.Query("page"); raw != "" {
+		value, err := strconv.Atoi(raw)
+		if err != nil || value < 1 || value > 500 {
+			return c.SendStatus(400)
+		}
+		page = value
+	}
+	return proxySeerRequest(c, "/api/v1/discover/"+kind+"?page="+strconv.Itoa(page))
 }
 
 func PostSeerRequest(c fiber.Ctx) error {
@@ -302,7 +343,7 @@ func PostSeerRequest(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadGateway).JSON(models.APIError{Error: "Seer not configured"})
 	}
 
-	req, err := http.NewRequest(http.MethodPost, seerURL+"/api/v1/request", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(c.Context(), http.MethodPost, seerURL+"/api/v1/request", bytes.NewReader(body))
 	if err != nil {
 		slog.Error("Failed to build Seer request", "error", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(models.APIError{Error: "Failed to build Seer request"})
@@ -313,14 +354,14 @@ func PostSeerRequest(c fiber.Ctx) error {
 		req.AddCookie(&http.Cookie{Name: "connect.sid", Value: session})
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := seerHTTPClient.Do(req)
 	if err != nil {
 		slog.Error("Seer request failed", "error", err)
 		return c.Status(fiber.StatusBadGateway).JSON(models.APIError{Error: "Failed to reach Seer"})
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := upstream.ReadAll(resp.Body, upstream.MaxResponseBytes)
 	if err != nil {
 		slog.Error("Failed to read Seer response", "error", err)
 		return c.Status(fiber.StatusBadGateway).JSON(models.APIError{Error: "Failed to read Seer response"})
@@ -353,25 +394,53 @@ func GetSeerrStatus(c fiber.Ctx) error {
 		return c.JSON(seerrStatusResponse{LoggedIn: false})
 	}
 
-	req, err := http.NewRequest(http.MethodGet, seerURL+"/api/v1/auth/me", nil)
+	req, err := http.NewRequestWithContext(c.Context(), http.MethodGet, seerURL+"/api/v1/auth/me", nil)
 	if err != nil {
 		slog.Error("Failed to build Seer status request", "error", err)
 		return c.JSON(seerrStatusResponse{LoggedIn: false})
 	}
 	req.AddCookie(&http.Cookie{Name: "connect.sid", Value: session})
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := seerHTTPClient.Do(req)
 	if err != nil {
 		slog.Error("Seer status check failed", "error", err)
 		return c.JSON(seerrStatusResponse{LoggedIn: false})
 	}
 	defer resp.Body.Close()
-	io.Copy(io.Discard, resp.Body)
+	_, err = upstream.ReadAll(resp.Body, upstream.MaxResponseBytes)
+	if err != nil {
+		return c.JSON(seerrStatusResponse{LoggedIn: false})
+	}
 
 	if resp.StatusCode != http.StatusOK {
-		clearSeerSessionCookie(c)
+		if err := clearSeerSessionCookie(c); err != nil {
+			return c.Status(503).JSON(models.APIError{Error: "Invalid browser security configuration"})
+		}
 		return c.JSON(seerrStatusResponse{LoggedIn: false})
 	}
 
 	return c.JSON(seerrStatusResponse{LoggedIn: true})
+}
+
+func seerPost(c fiber.Ctx, target, contentType string, body io.Reader) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(c.Context(), http.MethodPost, target, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", contentType)
+	return seerHTTPClient.Do(req)
+}
+
+func seerGet(c fiber.Ctx, target string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(c.Context(), http.MethodGet, target, nil)
+	if err != nil {
+		return nil, err
+	}
+	return seerHTTPClient.Do(req)
+}
+
+// Add emits separate Set-Cookie fields for the current and legacy paths.
+// Fiber's Cookie helper replaces by name, which would lose one of the paths.
+func appendSeerCookie(c fiber.Ctx, cookie *http.Cookie) {
+	c.Response().Header.Add("Set-Cookie", cookie.String())
 }

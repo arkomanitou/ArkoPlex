@@ -13,11 +13,6 @@ import GenresRow from './GenresRow';
 import LibrariesRow from './LibrariesRow';
 import StudiosRow from './StudiosRow';
 import RecentlyAddedRow from './RecentlyAddedRow';
-import {
-    SeerrPopularMoviesRow,
-    SeerrPopularSeriesRow,
-    SeerrTrendingRow,
-} from './SeerrDiscoverRows';
 import RecentEpisodesRow from './RecentEpisodesRow';
 
 function getDetailFieldsForCollectionType(type: CollectionType | undefined): DetailField[] {
@@ -200,31 +195,9 @@ const HomePage = () => {
                                 />
                             );
 
+                        // External discoveries belong to the dedicated discovery page.
                         case 'seerrDiscover':
-                            switch (section.variant) {
-                                case 'popularMovies':
-                                    return (
-                                        <SeerrPopularMoviesRow
-                                            key={index}
-                                            title={section.title || t('seerr_popular_movies')}
-                                        />
-                                    );
-                                case 'popularSeries':
-                                    return (
-                                        <SeerrPopularSeriesRow
-                                            key={index}
-                                            title={section.title || t('seerr_popular_series')}
-                                        />
-                                    );
-                                case 'trending':
-                                default:
-                                    return (
-                                        <SeerrTrendingRow
-                                            key={index}
-                                            title={section.title || t('seerr_trending')}
-                                        />
-                                    );
-                            }
+                            return null;
 
                         case 'recentEpisodes':
                             return (

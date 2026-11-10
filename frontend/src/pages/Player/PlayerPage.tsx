@@ -15,6 +15,9 @@ import {
     getSubtitleUrl,
     getPlaybackStreamUrl,
     getAttachmentUrl,
+    getServerSubtitleIndex,
+    isBitmapSubtitle,
+    preferredSubtitleIndex,
 } from '@pelagica/core';
 import { usePlaybackInfo } from '@pelagica/core';
 import { useMediaSegments } from '@pelagica/core';
@@ -90,17 +93,16 @@ const PlayerPage = () => {
         const preferred = userConfiguration.SubtitleLanguagePreference;
         if (!preferred) return null;
 
-        const subtitleStreams = item.MediaStreams?.filter((s) => s.Type === 'Subtitle');
-
-        const match = subtitleStreams?.findIndex((s) => s.Language === preferred);
-
-        if (match !== undefined && match >= 0) return match;
-        return null;
+        return preferredSubtitleIndex(item.MediaStreams ?? [], preferred);
     }, [item, userConfiguration]);
 
     const [audioTrackIndex, setAudioTrackIndex] = useState<number>(resolvedAudio.index);
     const [subtitleTrackIndex, setSubtitleTrackIndex] = useState<number | null>(
         resolvedSubtitleTrackIndex
+    );
+    const serverSubtitleIndex = getServerSubtitleIndex(
+        item?.MediaStreams ?? [],
+        subtitleTrackIndex
     );
     const containerRef = useRef<HTMLDivElement>(null);
     const progressReportingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -122,7 +124,13 @@ const PlayerPage = () => {
         data: playbackInfo,
         isLoading: isLoadingPlaybackInfo,
         error: playbackInfoError,
-    } = usePlaybackInfo(itemId, getUserId() || undefined, audioTrackIndex, forceTranscode);
+    } = usePlaybackInfo(
+        itemId,
+        getUserId() || undefined,
+        audioTrackIndex,
+        forceTranscode,
+        serverSubtitleIndex
+    );
 
     const playSessionId = playbackInfo?.playSessionId || '';
 
@@ -284,25 +292,22 @@ const PlayerPage = () => {
                 clearInterval(progressReportingIntervalRef.current);
             }
 
-            // Here we need the last know position since the player might be already in the shadow realm
-            stopPlayback({ itemId, positionTicks: lastPositionRef.current });
-
             if (liveStreamIdRef.current) {
                 closeLiveStream(liveStreamIdRef.current);
                 liveStreamIdRef.current = undefined;
             }
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [
-        itemId,
-        player,
-        reportProgress,
-        startPlayback,
-        startTicks,
-        stopPlayback,
-        closeLiveStream,
-        clearPlayback,
-    ]);
+    }, [itemId, player, reportProgress, startPlayback, startTicks, closeLiveStream, clearPlayback]);
+
+    // Own server resources by play session, not by progress-effect rerenders.
+    // Switching audio/subtitle modes stops only the previous encoding.
+    useEffect(() => {
+        if (!itemId || !playSessionId) return;
+        return () => {
+            stopPlayback({ itemId, positionTicks: lastPositionRef.current, playSessionId });
+        };
+    }, [itemId, playSessionId, stopPlayback]);
 
     useEffect(() => {
         lastPositionRef.current = startTicks;
@@ -332,6 +337,9 @@ const PlayerPage = () => {
     };
 
     const handleSubtitleTrackChange = (index: number | null) => {
+        if (getServerSubtitleIndex(item?.MediaStreams ?? [], index) !== serverSubtitleIndex) {
+            pendingAudioSwitchSeekRef.current = player?.currentTime() ?? 0;
+        }
         hasUserSelectedSubtitleRef.current = true;
         setSubtitleTrackIndex(index);
     };
@@ -346,12 +354,15 @@ const PlayerPage = () => {
             const isAss = codec === 'ass' || codec === 'ssa';
 
             return {
-                src: getSubtitleUrl(
-                    item.Id!,
-                    item.Id!,
-                    subtitle.Index || 0,
-                    isAss ? (codec as 'ass' | 'ssa') : 'vtt'
-                ),
+                serverRendered: isBitmapSubtitle(subtitle),
+                src: isBitmapSubtitle(subtitle)
+                    ? ''
+                    : getSubtitleUrl(
+                          item.Id!,
+                          item.Id!,
+                          subtitle.Index || 0,
+                          isAss ? (codec as 'ass' | 'ssa') : 'vtt'
+                      ),
                 srclang: subtitle.Language || 'unknown',
                 label: subtitle.DisplayTitle || subtitle.Language || `Subtitle ${subtitle.Index}`,
                 default: subtitle.IsDefault || false,

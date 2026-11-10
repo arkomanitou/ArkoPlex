@@ -92,5 +92,27 @@ export function runChecks() {
             filmHTML.includes('>Favoris<') &&
             filmHTML.includes('Rechercher un titre')
     );
+    const carouselHTML = render([movie, series]);
+    check(
+        'Les points identifient chaque titre et le point actif',
+        carouselHTML.includes('aria-label="Choisir un titre"') &&
+            carouselHTML.includes('aria-label="Afficher Film de test (1 sur 2)"') &&
+            carouselHTML.includes('aria-label="Afficher Série de test (2 sur 2)"') &&
+            carouselHTML.includes('aria-current="true"') &&
+            !carouselHTML.includes('Titre précédent') &&
+            !carouselHTML.includes('Titre suivant')
+    );
+    check(
+        'Un seul titre ne présente pas de commandes de rotation inutiles',
+        !filmHTML.includes('arko-hero-pager')
+    );
+    check(
+        'Le carrousel fournit un repère accessible et une commande de rotation',
+        carouselHTML.includes('aria-roledescription="carrousel"') &&
+            carouselHTML.includes('arko-hero-rotation') &&
+            carouselHTML.includes(
+                'Défilement automatique désactivé par les préférences de mouvement'
+            )
+    );
     return checks;
 }

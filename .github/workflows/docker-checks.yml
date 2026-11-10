@@ -1,0 +1,40 @@
+name: ArkoPlex isolated Docker checks
+
+on:
+  pull_request:
+    branches: [main, 'arkoplex/beta-1', 'arkoplex/security-hardening', 'arkoplex/seerr-https-docker']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: root
+            base_path: ''
+          - label: prefix
+            base_path: '/arkoplex'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build candidate image locally (no registry push)
+        env:
+          BASE_PATH: ${{ matrix.base_path }}
+          IMAGE: arkoplex-ci:${{ github.sha }}-${{ matrix.label }}
+        run: docker build --build-arg "BASE_PATH=$BASE_PATH" --build-arg "APP_VERSION=ci-${GITHUB_SHA}" --tag "$IMAGE" .
+      - name: Exercise nginx, backend and fixture-only Seerr
+        env:
+          BASE_PATH: ${{ matrix.base_path }}
+          IMAGE: arkoplex-ci:${{ github.sha }}-${{ matrix.label }}
+        run: python3 scripts/check-docker.py --image "$IMAGE" --base-path "$BASE_PATH"

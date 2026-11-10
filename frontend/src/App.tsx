@@ -16,6 +16,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from './components/theme-provider.tsx';
 import { BASE_PATH } from '@pelagica/core';
 
+const DiscoverPage = lazy(() => import('./pages/Discover/DiscoverPage.tsx'));
 const HomePage = lazy(() => import('./pages/Home/HomePage.tsx'));
 const LoginPage = lazy(() => import('./pages/Login/LoginPage.tsx'));
 const LibraryPage = lazy(() => import('./pages/Library/LibraryPage.tsx'));
@@ -83,6 +84,7 @@ export default function App() {
                                                 element={<ThemeBrowserPage />}
                                             />
                                             <Route path="/search" element={<SearchPage />} />
+                                            <Route path="/discover" element={<DiscoverPage />} />
                                             <Route path="/live" element={<LivetvPage />} />
                                             <Route
                                                 path="/photo/:itemId"

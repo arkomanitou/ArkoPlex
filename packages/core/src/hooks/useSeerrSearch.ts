@@ -1,11 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import type { SeerrSearchResultItem } from '../api/seerr/types';
-import { getServerUrl } from '../utils/localstorageCredentials';
+import { getServerUrl, getUserId } from '../utils/localstorageCredentials';
 import { searchSeerr } from '../api/seerr/search';
 
 export function useSeerrSearch(query: string | undefined) {
     return useQuery<SeerrSearchResultItem[]>({
-        queryKey: ['seerrSearch', query, getServerUrl()],
+        queryKey: ['seerrSearch', query, getServerUrl(), getUserId()],
         queryFn: () => searchSeerr(query!),
         enabled: !!query,
         refetchOnWindowFocus: false,

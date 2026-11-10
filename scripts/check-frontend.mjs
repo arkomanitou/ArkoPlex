@@ -20,9 +20,11 @@ const vite = await createServer({
     appType: 'custom',
 });
 try {
-    const { runChecks } = await vite.ssrLoadModule('/tests/nightpulse.ssr.tsx');
-    const results = runChecks();
-    for (const name of results) console.log('PASS ' + name);
+    for (const module of ['/tests/nightpulse.ssr.tsx', '/tests/discovery.ssr.tsx', '/tests/playback.ssr.tsx']) {
+        const { runChecks } = await vite.ssrLoadModule(module);
+        const results = await runChecks();
+        for (const name of results) console.log('PASS ' + name);
+    }
 } finally {
     await vite.close();
 }

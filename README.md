@@ -1,165 +1,159 @@
-<p align="center">
-  <img height="80px" width="80px" src="https://pelagica.app/logo/logo_pride.svg" alt="Pelagica logo">
-  <h1 align="center"><b>Pelagica</b></h1>
-</p>
+# ArkoPlex
 
-<p align="center">
-  <a href="https://github.com/PelagicaApp/pelagica/releases/latest"><img src="https://img.shields.io/github/v/release/PelagicaApp/pelagica" alt="Latest Release"></a>
-  <a href="https://github.com/PelagicaApp/pelagica/blob/main/LICENSE"><img src="https://img.shields.io/github/license/PelagicaApp/pelagica" alt="License"></a>
-  <a href="https://hub.docker.com/r/kartoffelchipss/pelagica"><img src="https://img.shields.io/docker/pulls/kartoffelchipss/pelagica" alt="Docker Pulls"></a>
-  <img src="https://img.shields.io/github/stars/PelagicaApp/pelagica?style=flat&color=gold" alt="Stars">
-  <a href="https://stats.pelagica.app/"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fstats.pelagica.app%2Fstats&label=active%20instances&query=%24.active_instances&color=brightgreen" alt="Active Instances"></a>
-  <a href="https://twoglot.com/@KartoffelChipss/pelagica"><img src="https://twoglot.com/api/projects/by-owner/KartoffelChipss/pelagica/badge.svg" alt="Translations"></a>
-</p>
+Client Jellyfin web indépendant, basé sur **Pelagica 4.15.0**. ArkoPlex est un
+**bêta 1 de référence**, validée pour les parcours décrits ci-dessous sur une
+installation locale. La validation HTTPS derrière un proxy et les essais prolongés
+restent à terminer avant de qualifier un accès extérieur. Le périmètre maintenu ici est le frontend web React et
+le backend Go ; les applications desktop et TV héritées restent hors périmètre.
 
-<p align="center">Pelagica is a web, desktop, and TV client for <a href="https://jellyfin.org">Jellyfin</a> built using React. It aims to provide a fast, modern, and customizable user experience for browsing and watching your media library. It's available as a self-hosted web app, a native desktop app for macOS, Windows, and Linux, and a TV app for Samsung Tizen, LG webOS and Apple TV.</p>
+## Origine et licence
 
-![Home](./.github/assets/home.webp)
+ArkoPlex reprend [Pelagica](https://github.com/PelagicaApp/pelagica), ses auteurs
+et contributeurs, sous [GNU GPL v3.0](LICENSE). L'historique amont et les mentions
+de licence sont conservés. La référence amont 4.15.0 est le commit
+`fc6e0aa6edd7b63a85fdbb7963b6c724b81364b7` (voir `baseline-spec.json`).
+Pelagica indique une inspiration visuelle de
+[finetic](https://github.com/AyaanZaveri/finetic), sans reprise de son code.
+Merci aux contributeurs Pelagica et aux projets React, Jellyfin et Wails.
+ArkoPlex n'est pas affilié au projet Jellyfin. Les illustrations de médias
+appartiennent à leurs ayants droit ; ce client ne fournit aucun contenu.
 
-## Table of Contents
+## Bêta 1 de référence
 
-- [Features](#features)
-- [Web Demo](#web-demo)
-- [Installation options](#installation-options)
-- [Discord](#discord)
-- [Localization](#localization)
-- [Development Setup](#development-setup)
-- [Contributing](#contributing)
-- [What does that name mean?](#what-does-that-name-mean)
-- [Acknowledgements](#acknowledgements)
-- [Disclaimer](#disclaimer)
-- [License](#license)
+La branche `arkoplex/beta-1` regroupe la direction Night Pulse, les protections
+backend, l’intégration Jellyseerr, les découvertes personnalisées et les correctifs
+récents du lecteur. Voir [la fiche bêta 1](docs/BETA-1.md).
 
-## Features
+La référence applicative installée et vérifiée le 10 novembre 2026 est
+`655ebc5506e552446a28c8b31797ce13cc732095`. La consolidation ajoute de la
+documentation et étend les contrôles Docker à la branche principale ; elle ne
+modifie pas ce code applicatif. Les branches de développement et leur historique
+sont conservés.
 
-- **Customizable Sections:** Tailor your homepage with sections like "Continue Watching", "Recently Added", or completely custom queries.
-- **Media Bars:** Add custom media bars to feature specific content.
-- **Search:** Quickly find media across your library from anywhere using `Cmd+K` / `Ctrl+K`.
-- **Video Player:** Integrated video player for movies and TV shows.
-- **Music Player:** A music player that allows you to listen to your music albums or playlists while browsing your library.
-- **Responsive Design:** Works seamlessly on both desktop and mobile devices.
-- **Desktop App:** Native apps for macOS, Windows, and Linux, built with [Wails](https://v3.wails.io).
-- **Theming:** Light and dark mode support as well as custom themes
-- **Localization:** Supports multiple languages through [community contributions](#localization).
+Fonctionnalités de cette référence :
 
-If you want to suggest new features or report bugs, please use the [GitHub Issues](https://github.com/KartoffelChipss/pelagica/issues) section.
+- « Le choix du soir » : rotation à huit secondes, points, pause et cadre stable
+  entre les titres ; respect des préférences de mouvement.
+- Onglet « À découvrir » séparé de l’accueil, suggestions par compte, recherche,
+  demandes de films/saisons et suivi Jellyseerr.
+- Négociation du flux avec la source vidéo exacte et choix explicite des
+  sous-titres ; utilisation du flux HLS adapté fourni par Jellyfin.
+- Arrêt de la conversion ciblé sur l’appareil et la lecture quittée, avec reprise
+  du même titre dans une nouvelle session.
 
-### Integrated Services
+Les retours des deux comptes, les demandes jusqu’à disponibilité dans Jellyfin,
+le mobile et les derniers essais de lecture sont concluants. Les contrôles
+reproductibles sont détaillés ci-dessous ; ils ne remplacent pas des essais
+prolongés avec les différents codecs et appareils.
 
-- **Seerr:** Discover new movies and TV shows to watch, and request them without leaving Pelagica.
-- **Streamystats:** Get your streamystats recommendations directly on your home page.
-- **kefintweaks Watchlist:** View and manage your kefintweaks watchlist within Pelagica.
+## Construire et vérifier dans un environnement isolé
 
-### Screenshots
-
-<table>
-  <tr>
-    <td>
-      <img src="./.github/assets/library.webp" />
-    </td>
-    <td>
-      <img src="./.github/assets/series.webp" />
-    </td>
-  </tr>
-  <tr>
-    <td>
-      <img src="./.github/assets/episode.webp" />
-    </td>
-    <td>
-      <img src="./.github/assets/music.webp" />
-    </td>
-  </tr>
-</table>
-
-> Screenshots may include media artwork used for demonstration purposes only.
-
-## Web Demo
-
-You can find a live demo of Pelagica web at:
-
-https://demo.pelagica.app/
-
-The demo instance has the `jellyfin.streamyfin.app` server with a username preconfigured, so you just have to click "Login" to test it out. If your own Jellyfin server is publicly accessible, you can also use that by entering the server URL and your credentials.
-
-For production use, you should self-host Pelagica using Docker or another method.
-
-Thank you to [Streamyfin](https://streamyfin.app/) for providing a demo Jellyfin server for testing!
-
-## Installation options
-
-### Web Installation
-
-Pelagica web is distributed as a Docker image. See the [Installation](https://pelagica.app/docs/installation) and [Configuration](https://pelagica.app/docs/configuration) docs for setup instructions, and [Themes](https://pelagica.app/docs/themes) for applying custom themes.
-
-### Desktop App
-
-Pelagica is also available as a native desktop app for macOS, Windows, and Linux, built with [Wails v3](https://v3.wails.io). Download the latest build for your platform from the [Releases](https://github.com/PelagicaApp/pelagica/releases/latest) page.
-
-- **macOS:** Not notarized, so Gatekeeper will flag it — right-click the app and choose "Open" to bypass.
-- **Windows:** Not signed with an Authenticode certificate, so SmartScreen will flag it.
-- **Linux:** Available as a `.deb` package, a `.pkg.tar.zst` package (Arch Linux), or an `.AppImage`.
-
-See the [desktop README](./desktop/README.md) for build and packaging instructions if you'd rather build it yourself.
-
-#### Homebrew (macOS)
-
-On Apple Silicon, Pelagica can be installed and kept up to date through the [Homebrew tap](https://github.com/PelagicaApp/homebrew-pelagica):
+Pré requis : Git, Python 3, Node **24.22.1** (`.node-version`), pnpm **11.25.0**
+(`package.json`), Go **1.25.14** (`.go-version` ; module backend : Go 1.25.0).
+Installer ces versions avant les commandes ; aucune mise à jour de lockfile
+n'est nécessaire. Depuis un nouveau répertoire :
 
 ```sh
-brew tap PelagicaApp/pelagica
-brew trust PelagicaApp/pelagica
-brew install --cask pelagica
+git clone --branch arkoplex/beta-1 https://github.com/arkomanitou/ArkoPlex.git
+cd ArkoPlex
+npm install --global pnpm@11.25.0
+bash scripts/baseline-build.sh
 ```
 
-Later updates are just `brew upgrade --cask pelagica`.
+Le script contrôle les versions, installe avec `--frozen-lockfile`, construit
+TypeScript/Vite puis Go (`-mod=readonly`), vérifie les modules et consigne les
+résultats dans `.baseline/` (non versionné).
 
-### Samsung Tizen
+```sh
+pnpm --filter pelagica run lint
+pnpm --filter pelagica run format:check
+node scripts/check-frontend.mjs
+node --test scripts/check-hero-rotation.mjs
+(cd backend && GOTOOLCHAIN=local go test -mod=readonly ./...)
+(cd backend && GOTOOLCHAIN=local go vet -mod=readonly ./...)
+```
 
-Pelagica is available as a Tizen app for Samsung Smart TVs. See the [Tizen Documentation](https://pelagica.app/docs/tizen) for installation instructions.
+`check-frontend.mjs` rend du HTML SSR avec des identifiants fictifs : aucune
+connexion Jellyfin. Les tests de rotation utilisent une horloge simulée.
+La CI utilise aussi un navigateur avec des réponses simulées et des conteneurs
+Docker isolés avec de faux services Jellyfin/Seerr. Elle n’accède pas au homelab
+et ne publie pas d’image. Les anciens workflows sont conservés dans
+`.github/workflows-archive/` où GitHub ne les exécute pas. Ne pas les réactiver
+sans revue : ils ciblent les publications Pelagica et des secrets amont.
+Aucun réglage global GitHub Actions ni secret n'est requis par ce lot.
 
-### LG webOS
+## Configuration et limites connues
 
-Pelagica is available as a webOS app for LG Smart TVs. See the [webOS Documentation](https://pelagica.app/docs/webos) for installation instructions.
+Le conteneur prévoit `/config` pour l'état persistant, dont
+`/config/arkoplex/config.json`, les logos, les données héritées, caches et logs.
+`ARKOPLEX_CONFIG_PATH` permet de choisir le fichier. Les écritures de configuration, logos, thèmes et consentement global exigent
+toujours un administrateur vérifié sur le serveur défini par `SERVER_ADDRESS`,
+même si `ENABLE_AUTH=false` ou absent. Utiliser une URL générique telle
+que `https://jellyfin.example.invalid` dans la documentation, jamais de jeton
+ou mot de passe. Les champs de configuration lisibles par le client ne sont
+pas un coffre à secrets. `COLLECTOR_STATS_CONSENT=false` refuse les statistiques.
 
-### Apple TV
+Des routes et intégrations Pelagica sont encore actives. La revue statique et
+les décisions de durcissement doivent être traitées avant une ouverture réseau.
+Les contrôles CI ne certifient ni la sécurité, ni la lecture réelle, ni le
+comportement mobile. Le Dockerfile existe, mais un build web/Go réussi ne prouve
+pas qu'une image Docker a été construite ou testée. Les images de base du
+conteneur et les dépendances nécessitent un suivi séparé.
 
-Pelagica is available as a tvOS app for Apple TV. You can find the repository for the tvOS app with installation instructions [here](https://github.com/PelagicaApp/pelagica-atv).
+Le [premier lot de durcissement](docs/SECURITY-HARDENING.md) décrit les bornes,
+les changements de compatibilité des URLs et les validations restantes.
+Les requêtes ne choisissent plus librement le serveur Jellyfin à contacter.
 
-## Discord
+Le [lot Seerr et Docker](docs/SEERR-HTTPS-DOCKER.md) décrit
+`ARKOPLEX_PUBLIC_ORIGIN`, le préfixe de construction, les cookies/CSRF et les
+contrôles du conteneur. Une exposition HTTPS derrière proxy exige cette origine
+explicite ; [la fiche reverse proxy](docs/REVERSE-PROXY.md) précise la préparation
+et les contrôles. Aucun proxy ni DNS existant n’est modifié par le code.
 
-For discussions about Pelagica, join the [JellyfinCommunity](https://discord.gg/VKqprjh3Wr) and head to the `#pelagica` channel.
+## Mise à jour, sauvegarde et retour arrière
 
-## Localization
+Un point de restauration local de la référence applicative `655ebc5` a été
+vérifié le 10 novembre 2026 : archive et empreinte, restauration dans un volume
+neuf, comparaison des fichiers/permissions/propriétaires et démarrage isolé de
+la copie restaurée. L’instance a été relancée après la copie. Les archives,
+configurations et manifestes propres à l’installation restent privés.
 
-Pelagica supports multiple languages through community contributions. See the [Translations](https://pelagica.app/docs/translations) docs for how to contribute.
+Ce point local ne constitue pas une sauvegarde hors machine. Le dépôt cloud et
+une politique de rétention doivent être configurés séparément. Les commandes
+ci-dessous sont une procédure générique à adapter, pas un script déjà exécuté
+mot pour mot sur chaque installation.
+Avant toute mise à jour, relever le commit source, le tag **et l'ID exact** de
+l'image courante, le fichier de stack/Compose et le nom réel du volume monté
+sur `/config`. Conserver l'ancienne image. Ne jamais utiliser `down -v`,
+`volume rm` ou un nettoyage automatique pour mettre à jour.
 
-[![Pelagica translation status](https://twoglot.com/api/projects/by-owner/KartoffelChipss/pelagica/languages.svg)](https://twoglot.com/@KartoffelChipss/pelagica)
+1. Construire et tester le commit retenu dans un environnement isolé, avec un
+   nouveau tag explicite (pas `latest`). Examiner les résultats avant transfert.
+2. Prévoir un arrêt du seul conteneur concerné pour une copie cohérente de
+   `/config`. Aucun arrêt n'est réalisé par cette préparation.
+3. Sauvegarder **tout le volume** et le fichier de stack dans un emplacement
+   privé, avec une date et une somme SHA-256. Protéger les archives comme des
+   données sensibles. Exemple générique de copie du volume arrêté, à adapter :
 
-## Development Setup
+```sh
+# Exemple uniquement : utiliser une image utilitaire déjà approuvée/disponible.
+# Remplacer les noms et créer le dossier privé de sauvegarde au préalable.
+docker run --rm --network none \
+  --mount type=volume,src=example_config,dst=/source,readonly \
+  --mount type=bind,src=/absolute/private-backups,dst=/backup \
+  alpine:3.22 sh -c 'tar -czf /backup/config-before-update.tgz -C /source .'
+sha256sum /absolute/private-backups/config-before-update.tgz
+```
 
-See the [Development Setup](https://pelagica.app/docs/development) docs for prerequisites and how to run the project locally.
+4. Lister l'archive et tester son extraction dans un répertoire ou volume neuf,
+   jamais par-dessus la configuration active. Vérifier fichiers et permissions.
+5. Lors d'une opération ultérieure autorisée, remplacer uniquement l'image en
+   conservant le volume existant, puis vérifier connexion, navigation, lecture,
+   progression, administration et rotation clavier/survol/mouvement réduit.
+6. En cas de régression, remettre l'ancienne image. Si les données ont changé,
+   restaurer la copie validée dans un **nouveau volume** et le sélectionner dans
+   la stack. Conserver le volume initial et les archives sans suppression.
 
-## Contributing
-
-See the [Contributing](https://pelagica.app/docs/contributing) docs for guidelines on reporting issues and submitting pull requests.
-
-## What does that name mean?
-
-You might be wondering about the name "Pelagica". Since I didn't want to call it the usual "\*fin" or "jelly\*" names, I looked for synonyms related to the sea. "Pelagic" refers to living in the deep ocean, which felt fitting for a Jellyfin frontend.
-
-## Acknowledgements
-
-Pelagica’s design was inspired by the [finetic](https://github.com/AyaanZaveri/finetic) Jellyfin frontend.  
-No code was used; this project is an independent implementation.
-
-## Disclaimer
-
-This project is a third-party frontend for Jellyfin and is not affiliated with the Jellyfin project.
-
-Jellyfin is a media server designed to organize and stream legally obtained media. This project does not provide, host, or encourage access to pirated content.
-
-The movie posters and images shown in the examples are not owned by me and are only used for demonstration purposes. All rights belong to their respective owners.
-
-## License
-
-This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](./LICENSE) file for details.
+La sauvegarde de `/config` n'inclut pas les données du serveur Jellyfin.
+Aucun accès extérieur, release, publication d'image ou mise à jour automatique
+n'est configuré par cette branche.
