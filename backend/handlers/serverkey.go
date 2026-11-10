@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"pelagica-backend/jellyfin"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
@@ -57,7 +58,11 @@ func serverKeyFromURL(raw string) (string, error) {
 }
 
 func serverKeyFromRequest(c fiber.Ctx) (string, error) {
-	return serverKeyFromURL(c.Query("jellyfin_url"))
+	base, err := jellyfin.ValidateRequestedServer(c.Query("jellyfin_url"))
+	if err != nil {
+		return "", err
+	}
+	return serverKeyFromURL(base.String())
 }
 
 func serverDataDir(serverKey string) string {

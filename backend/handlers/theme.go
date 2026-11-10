@@ -1,13 +1,14 @@
 package handlers
 
 import (
-	"encoding/json"
+	"context"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
-	"sync"
+	"pelagica-backend/upstream"
+	"time"
 
 	"pelagica-backend/services"
 
@@ -17,26 +18,10 @@ import (
 	"pelagica-backend/models"
 )
 
-var (
-	themeStores   = make(map[string]*services.ThemeStore)
-	themeStoresMu sync.Mutex
-)
+var themeHTTPClient = upstream.NewClient(15 * time.Second)
 
 func themeStoreForServer(serverKey string) (*services.ThemeStore, error) {
-	themeStoresMu.Lock()
-	defer themeStoresMu.Unlock()
-
-	if store, ok := themeStores[serverKey]; ok {
-		return store, nil
-	}
-
-	store, err := services.NewThemeStore(filepath.Join(serverDataDir(serverKey), "themes"))
-	if err != nil {
-		return nil, err
-	}
-
-	themeStores[serverKey] = store
-	return store, nil
+	return services.NewThemeStore(filepath.Join(serverDataDir(serverKey), "themes"))
 }
 
 func themeStoreFromRequest(c fiber.Ctx) (*services.ThemeStore, error) {
@@ -58,7 +43,7 @@ func GetThemes(c fiber.Ctx) error {
 
 func GetTheme(c fiber.Ctx) error {
 	id := c.Params("id", "")
-	if id == "" {
+	if !services.ValidThemeID(id) {
 		return c.Status(fiber.StatusBadRequest).JSON(models.APIError{Error: "Theme ID is required"})
 	}
 
@@ -107,7 +92,7 @@ func CreateTheme(c fiber.Ctx) error {
 
 func UpdateTheme(c fiber.Ctx) error {
 	id := c.Params("id", "")
-	if id == "" {
+	if !services.ValidThemeID(id) {
 		return c.Status(fiber.StatusBadRequest).JSON(models.APIError{Error: "Theme ID is required"})
 	}
 
@@ -140,8 +125,11 @@ func UpdateTheme(c fiber.Ctx) error {
 }
 
 func InstallTheme(c fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(c.Context(), 20*time.Second)
+	defer cancel()
+	c.SetContext(ctx)
 	id := c.Params("id", "")
-	if id == "" {
+	if !services.ValidThemeID(id) {
 		return c.Status(fiber.StatusBadRequest).JSON(models.APIError{Error: "Theme ID is required"})
 	}
 
@@ -161,7 +149,7 @@ func InstallTheme(c fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(models.APIError{Error: "Failed to construct theme repository URL"})
 	}
 
-	resp, err := http.Get(repoIndexUrl)
+	resp, err := themeGET(c, repoIndexUrl)
 	if err != nil {
 		slog.Error("Failed to fetch theme repo", "error", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(models.APIError{Error: "Failed to fetch theme repository"})
@@ -174,7 +162,7 @@ func InstallTheme(c fiber.Ctx) error {
 	}
 
 	var repo models.ThemeRepo
-	if err := json.NewDecoder(resp.Body).Decode(&repo); err != nil {
+	if err := upstream.DecodeJSON(resp.Body, 1<<20, &repo); err != nil {
 		slog.Error("Failed to decode theme repo", "error", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(models.APIError{Error: "Failed to decode theme repository"})
 	}
@@ -196,7 +184,7 @@ func InstallTheme(c fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(models.APIError{Error: "Theme not found in repository"})
 	}
 
-	resp, err = http.Get(themeURL)
+	resp, err = themeGET(c, themeURL)
 	if err != nil {
 		slog.Error("Failed to fetch theme", "error", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(models.APIError{Error: "Failed to fetch theme"})
@@ -209,7 +197,7 @@ func InstallTheme(c fiber.Ctx) error {
 	}
 
 	var theme models.Theme
-	if err := json.NewDecoder(resp.Body).Decode(&theme); err != nil {
+	if err := upstream.DecodeJSON(resp.Body, 1<<20, &theme); err != nil {
 		slog.Error("Failed to decode theme", "error", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(models.APIError{Error: "Failed to decode theme"})
 	}
@@ -232,7 +220,7 @@ func InstallTheme(c fiber.Ctx) error {
 
 func DeleteTheme(c fiber.Ctx) error {
 	id := c.Params("id", "")
-	if id == "" {
+	if !services.ValidThemeID(id) {
 		return c.Status(fiber.StatusBadRequest).JSON(models.APIError{Error: "Theme ID is required"})
 	}
 
@@ -250,4 +238,12 @@ func DeleteTheme(c fiber.Ctx) error {
 	slog.Info("Theme deleted", "id", id)
 
 	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func themeGET(c fiber.Ctx, target string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(c.Context(), http.MethodGet, target, nil)
+	if err != nil {
+		return nil, err
+	}
+	return themeHTTPClient.Do(req)
 }

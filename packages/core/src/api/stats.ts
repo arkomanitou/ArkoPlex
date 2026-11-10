@@ -1,5 +1,6 @@
 import { withBasePath } from '../utils/basePath';
 import { getPlatform } from './jellyfinClient';
+import { getAuthorizationHeader } from './getApi';
 
 export type StatsConsent = 'granted' | 'denied' | 'unknown';
 
@@ -53,6 +54,7 @@ export const setStatsConsent = async (consent: boolean): Promise<void> => {
 
     const res = await fetch(withBasePath('/api/stats-consent?consent=' + consent), {
         method: 'POST',
+        headers: { Authorization: getAuthorizationHeader() },
     });
     if (!res.ok) {
         throw new Error('Failed to set stats consent');

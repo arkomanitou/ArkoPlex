@@ -1,5 +1,5 @@
 import { CircleCheck } from 'lucide-react';
-import { useSetStatsConsent } from '@pelagica/core';
+import { useSetStatsConsent, useCurrentUser } from '@pelagica/core';
 import { useStatsConsent } from '@pelagica/core';
 import { Button } from './ui/button';
 import {
@@ -17,8 +17,9 @@ const StatsConsentModal = () => {
     const { t } = useTranslation('common');
     const { data: statsConsent } = useStatsConsent();
     const setStatsConsent = useSetStatsConsent();
+    const { data: currentUser } = useCurrentUser();
 
-    if (statsConsent === undefined) return null;
+    if (statsConsent === undefined || currentUser?.Policy?.IsAdministrator !== true) return null;
 
     const open = statsConsent === 'unknown';
 

@@ -1,13 +1,16 @@
 package handlers
 
 import (
-	"encoding/json"
+	"context"
+	"crypto/sha256"
 	"errors"
-	"io"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
+	"pelagica-backend/jellyfin"
+	"pelagica-backend/upstream"
 	"regexp"
 	"sort"
 	"strconv"
@@ -92,15 +95,16 @@ func parseDurationFromEnv(key string, fallback time.Duration) time.Duration {
 }
 
 func parseJellyfinCredentials(c fiber.Ctx) (string, string, error) {
-	jellyfinURLRaw := strings.TrimSpace(c.Query("jellyfin_url"))
-	if jellyfinURLRaw == "" {
-		return "", "", errors.New("missing jellyfin_url query parameter")
+	if _, err := jellyfin.ValidateRequestedServer(c.Query("jellyfin_url")); err != nil {
+		return "", "", err
 	}
-
-	if _, err := url.ParseRequestURI(jellyfinURLRaw); err != nil {
-		return "", "", errors.New("invalid jellyfin_url")
+	if c.Query("jellyfin_backend_url") != "" {
+		return "", "", errors.New("jellyfin_backend_url is server-configured only")
 	}
-
+	baseURL, err := jellyfin.BackendServer()
+	if err != nil {
+		return "", "", err
+	}
 	authorizationHeader := strings.TrimSpace(c.Get("Authorization"))
 	if authorizationHeader == "" {
 		return "", "", errors.New("missing Authorization header")
@@ -119,19 +123,7 @@ func parseJellyfinCredentials(c fiber.Ctx) (string, string, error) {
 		return "", "", errors.New("invalid Authorization header")
 	}
 
-	backendOverride := strings.TrimSpace(c.Query("jellyfin_backend_url"))
-	if backendOverride == "" {
-		backendOverride = strings.TrimSpace(os.Getenv("JELLYFIN_BACKEND_URL"))
-	}
-
-	if backendOverride != "" {
-		if _, err := url.ParseRequestURI(backendOverride); err != nil {
-			return "", "", errors.New("invalid jellyfin_backend_url")
-		}
-		jellyfinURLRaw = backendOverride
-	}
-
-	return jellyfinURLRaw, token, nil
+	return baseURL.String(), token, nil
 }
 
 func extractJellyfinToken(authorizationHeader string) string {
@@ -219,27 +211,31 @@ func parseStudiosStartIndex(c fiber.Ctx) (int, error) {
 }
 
 func buildStudiosCacheKey(jellyfinURL, token string) string {
-	return jellyfinURL + "\n" + token
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(jellyfinURL+"\n"+token)))
 }
 
-func listStudiosFromJellyfin(jellyfinURL, token string) ([]models.StudioSummary, error) {
+func listStudiosFromJellyfin(ctx context.Context, jellyfinURL, token string) ([]models.StudioSummary, error) {
 	baseURL, err := url.Parse(jellyfinURL)
 	if err != nil {
 		return nil, err
 	}
 
-	userID, err := fetchJellyfinUserID(baseURL, token)
+	userID, err := fetchJellyfinUserID(ctx, baseURL, token)
 	if err != nil {
 		return nil, err
 	}
 
 	counts := make(map[string]*models.StudioSummary)
 	startIndex := 0
-	client := &http.Client{Timeout: jellyfinItemsRequestLimit}
+	client := studiosHTTPClient
+	pages := 0
 
 	for {
-		endpoint, _ := url.Parse("/Users/" + url.PathEscape(userID) + "/Items")
-		fullURL := baseURL.ResolveReference(endpoint)
+		pages++
+		if pages > 100 {
+			return nil, errors.New("Jellyfin pagination exceeds limit")
+		}
+		fullURL, _ := url.Parse(jellyfin.Endpoint(baseURL, "Users/"+userID+"/Items"))
 
 		q := fullURL.Query()
 		q.Set("Recursive", "true")
@@ -250,7 +246,7 @@ func listStudiosFromJellyfin(jellyfinURL, token string) ([]models.StudioSummary,
 		q.Set("Limit", strconv.Itoa(defaultJellyfinPageSize))
 		fullURL.RawQuery = q.Encode()
 
-		req, err := http.NewRequest(http.MethodGet, fullURL.String(), nil)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, fullURL.String(), nil)
 		if err != nil {
 			return nil, err
 		}
@@ -263,24 +259,32 @@ func listStudiosFromJellyfin(jellyfinURL, token string) ([]models.StudioSummary,
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
 			resp.Body.Close()
-			return nil, errors.New("failed to fetch Jellyfin items: status=" + strconv.Itoa(resp.StatusCode) + " body=" + string(body))
+			return nil, errors.New("failed to fetch Jellyfin items: status=" + strconv.Itoa(resp.StatusCode))
 		}
 
 		var payload jellyfinItemsResponse
-		err = json.NewDecoder(resp.Body).Decode(&payload)
+		err = upstream.DecodeJSON(resp.Body, 8<<20, &payload)
 		resp.Body.Close()
 		if err != nil {
 			return nil, err
 		}
 
+		if len(payload.Items) > defaultJellyfinPageSize {
+			return nil, errors.New("Jellyfin page exceeds item limit")
+		}
 		if len(payload.Items) == 0 {
 			break
 		}
 
 		for _, item := range payload.Items {
+			if len(item.Studios) > 64 {
+				return nil, errors.New("too many studios per item")
+			}
 			for _, studio := range item.Studios {
+				if len(studio.ID) > 128 || len(studio.Name) > 512 {
+					return nil, errors.New("studio aggregation exceeds limit")
+				}
 				if studio.ID == "" || studio.Name == "" {
 					continue
 				}
@@ -291,6 +295,9 @@ func listStudiosFromJellyfin(jellyfinURL, token string) ([]models.StudioSummary,
 					continue
 				}
 
+				if len(counts) >= 10000 {
+					return nil, errors.New("studio aggregation exceeds limit")
+				}
 				counts[studio.ID] = &models.StudioSummary{
 					ID:    studio.ID,
 					Name:  studio.Name,
@@ -322,52 +329,51 @@ func listStudiosFromJellyfin(jellyfinURL, token string) ([]models.StudioSummary,
 	return studios, nil
 }
 
-func fetchJellyfinUserID(baseURL *url.URL, token string) (string, error) {
-	endpoint, _ := url.Parse("/Users/Me")
-	fullURL := baseURL.ResolveReference(endpoint)
+func fetchJellyfinUserID(ctx context.Context, baseURL *url.URL, token string) (string, error) {
+	fullURL, _ := url.Parse(jellyfin.Endpoint(baseURL, "Users/Me"))
 
-	req, err := http.NewRequest(http.MethodGet, fullURL.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fullURL.String(), nil)
 	if err != nil {
 		return "", err
 	}
 	applyJellyfinAuthHeaders(req, token)
 
-	resp, err := (&http.Client{Timeout: jellyfinItemsRequestLimit}).Do(req)
+	resp, err := studiosHTTPClient.Do(req)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
-		return "", errors.New("failed to resolve Jellyfin user: status=" + strconv.Itoa(resp.StatusCode) + " body=" + string(body))
+		return "", errors.New("failed to resolve Jellyfin user: status=" + strconv.Itoa(resp.StatusCode))
 	}
 
 	var me jellyfinMeResponse
-	if err := json.NewDecoder(resp.Body).Decode(&me); err != nil {
+	if err := upstream.DecodeJSON(resp.Body, 1<<20, &me); err != nil {
 		return "", err
 	}
 
-	if strings.TrimSpace(me.ID) == "" {
+	if !jellyfinUserIDPattern.MatchString(me.ID) {
 		return "", errors.New("failed to resolve Jellyfin user: empty user id")
 	}
 
 	return me.ID, nil
 }
 
-func getStudiosWithCache(jellyfinURL, token string) ([]models.StudioSummary, error) {
+func getStudiosWithCache(ctx context.Context, jellyfinURL, token string) ([]models.StudioSummary, error) {
 	cacheKey := buildStudiosCacheKey(jellyfinURL, token)
 	now := time.Now()
 
-	studiosCache.mu.RLock()
+	studiosCache.mu.Lock()
+	purgeStudiosCache(now)
 	entry, ok := studiosCache.entries[cacheKey]
-	studiosCache.mu.RUnlock()
+	studiosCache.mu.Unlock()
 
 	if ok && now.Before(entry.expiresAt) {
 		return entry.studios, nil
 	}
 
-	studios, err := listStudiosFromJellyfin(jellyfinURL, token)
+	studios, err := listStudiosFromJellyfin(ctx, jellyfinURL, token)
 	if err != nil {
 		return nil, err
 	}
@@ -375,6 +381,13 @@ func getStudiosWithCache(jellyfinURL, token string) ([]models.StudioSummary, err
 	ttl := parseDurationFromEnv("STUDIOS_CACHE_TTL", defaultStudiosCacheTTL)
 
 	studiosCache.mu.Lock()
+	purgeStudiosCache(time.Now())
+	if len(studiosCache.entries) >= maxStudiosCacheEntries {
+		for key := range studiosCache.entries {
+			delete(studiosCache.entries, key)
+			break
+		}
+	}
 	studiosCache.entries[cacheKey] = studiosCacheEntry{
 		studios:   studios,
 		expiresAt: now.Add(ttl),
@@ -406,10 +419,12 @@ func GetStudios(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(models.APIError{Error: err.Error()})
 	}
 
-	studios, err := getStudiosWithCache(jellyfinURL, token)
+	ctx, cancel := context.WithTimeout(c.Context(), jellyfinItemsRequestLimit)
+	defer cancel()
+	studios, err := getStudiosWithCache(ctx, jellyfinURL, token)
 	if err != nil {
 		slog.Error("Failed to load studios", "error", err)
-		return c.Status(fiber.StatusBadGateway).JSON(models.APIError{Error: "Failed to load studios from Jellyfin: " + err.Error()})
+		return c.Status(fiber.StatusBadGateway).JSON(models.APIError{Error: "Failed to load studios from Jellyfin"})
 	}
 
 	if search != "" {
@@ -489,13 +504,13 @@ func GetStudioLogo(c fiber.Ctx) error {
 	}
 	tmdbURL := tmdbImageBaseURL + sizeSegment + logo.LogoPath
 
-	req, err := http.NewRequest(http.MethodGet, tmdbURL, nil)
+	req, err := http.NewRequestWithContext(c.Context(), http.MethodGet, tmdbURL, nil)
 	if err != nil {
 		slog.Error("Failed to build TMDB image request", "error", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(models.APIError{Error: "Failed to fetch studio logo"})
 	}
 
-	resp, err := (&http.Client{Timeout: studioLogoRequestTimeout}).Do(req)
+	resp, err := studioLogoHTTPClient.Do(req)
 	if err != nil {
 		slog.Error("Failed to fetch studio logo from TMDB", "studio", studioName, "error", err)
 		return c.Status(fiber.StatusBadGateway).JSON(models.APIError{Error: "Failed to fetch studio logo"})
@@ -510,7 +525,7 @@ func GetStudioLogo(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadGateway).JSON(models.APIError{Error: "Failed to fetch studio logo"})
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := upstream.ReadAll(resp.Body, 8<<20)
 	if err != nil {
 		slog.Error("Failed to read studio logo response", "studio", studioName, "error", err)
 		return c.Status(fiber.StatusBadGateway).JSON(models.APIError{Error: "Failed to fetch studio logo"})
@@ -522,4 +537,19 @@ func GetStudioLogo(c fiber.Ctx) error {
 	c.Set("Cache-Control", studioLogoCacheControl)
 
 	return c.Send(body)
+}
+
+const maxStudiosCacheEntries = 128
+
+var studiosHTTPClient = upstream.NewClient(jellyfinItemsRequestLimit)
+var studioLogoHTTPClient = upstream.NewClient(studioLogoRequestTimeout)
+var jellyfinUserIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
+
+// Caller holds studiosCache.mu. Expired entries are physically removed.
+func purgeStudiosCache(now time.Time) {
+	for key, entry := range studiosCache.entries {
+		if !now.Before(entry.expiresAt) {
+			delete(studiosCache.entries, key)
+		}
+	}
 }
