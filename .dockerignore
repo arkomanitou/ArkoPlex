@@ -37,8 +37,15 @@ pnpm-debug.log*
 # Misc
 *.md
 *.txt
-LICENSE
 unraid-templates
 
 # Local baseline build artifacts and isolated test state
 .baseline
+
+# Runtime data and environment variants must not enter build layers
+**/.env*
+**/*.log
+**/servers
+deliverables
+
+/config

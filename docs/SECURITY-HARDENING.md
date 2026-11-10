@@ -86,7 +86,9 @@ service ou jeu de données personnel n'est requis.
 
 - Configuration exacte de l'instance et de ses URLs, puis image Docker isolée.
 - Connexion, administration, thèmes, studios et statistiques dans un navigateur.
-- Cookies Seerr, politique Origin/CSRF et préfixes derrière un proxy HTTPS.
+- Valider en environnement réel les cookies Seerr, Origin/CSRF et préfixes
+  derrière HTTPS ; les protections préparées sont décrites dans
+  [le deuxième lot](SEERR-HTTPS-DOCKER.md).
 - Séparation des champs publics/privés de configuration et politique des jetons
   navigateur ; le fichier de configuration public ne doit contenir aucun secret.
 - Durcissement de l'image, supervision des processus, en-têtes HTTP et dépendances.
