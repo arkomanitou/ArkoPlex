@@ -27,6 +27,7 @@ appartiennent à leurs ayants droit ; ce client ne fournit aucun contenu.
 | `arkoplex:jalon2-night-pulse` | Tag local signalé comme installé ; aucune image publique ArkoPlex annoncée |
 | `arkoplex/hero-auto-rotation` | `464111760aec4e145ab251684f0ea1c751592079`, rotation préparée, non déployée |
 | `arkoplex/beta-preparation` | Documentation et CI préparées à partir de la branche de rotation ; aucun déploiement |
+| `arkoplex/security-hardening` | Premier lot de protections backend, basé sur la préparation bêta ; non déployé |
 
 « Le choix du soir » comprend déjà une rotation à huit secondes, des points
 cliquables, pause/reprise et suspension au survol, au focus et lorsque l'onglet
@@ -48,7 +49,7 @@ Installer ces versions avant les commandes ; aucune mise à jour de lockfile
 n'est nécessaire. Depuis un nouveau répertoire :
 
 ```sh
-git clone --branch arkoplex/beta-preparation https://github.com/arkomanitou/ArkoPlex.git
+git clone --branch arkoplex/security-hardening https://github.com/arkomanitou/ArkoPlex.git
 cd ArkoPlex
 npm install --global pnpm@11.25.0
 bash scripts/baseline-build.sh
@@ -79,9 +80,9 @@ Aucun réglage global GitHub Actions ni secret n'est requis par ce lot.
 
 Le conteneur prévoit `/config` pour l'état persistant, dont
 `/config/arkoplex/config.json`, les logos, les données héritées, caches et logs.
-`ARKOPLEX_CONFIG_PATH` permet de choisir le fichier. Conserver
-`ENABLE_AUTH=true` ; les écritures ArkoPlex exigent un administrateur vérifié
-sur le serveur défini par `SERVER_ADDRESS`. Utiliser une URL générique telle
+`ARKOPLEX_CONFIG_PATH` permet de choisir le fichier. Les écritures de configuration, logos, thèmes et consentement global exigent
+toujours un administrateur vérifié sur le serveur défini par `SERVER_ADDRESS`,
+même si `ENABLE_AUTH=false` ou absent. Utiliser une URL générique telle
 que `https://jellyfin.example.invalid` dans la documentation, jamais de jeton
 ou mot de passe. Les champs de configuration lisibles par le client ne sont
 pas un coffre à secrets. `COLLECTOR_STATS_CONSENT=false` refuse les statistiques.
@@ -92,6 +93,10 @@ Les contrôles CI ne certifient ni la sécurité, ni la lecture réelle, ni le
 comportement mobile. Le Dockerfile existe, mais un build web/Go réussi ne prouve
 pas qu'une image Docker a été construite ou testée. Les images de base du
 conteneur et les dépendances nécessitent un suivi séparé.
+
+Le [premier lot de durcissement](docs/SECURITY-HARDENING.md) décrit les bornes,
+les changements de compatibilité des URLs et les validations restantes.
+Les requêtes ne choisissent plus librement le serveur Jellyfin à contacter.
 
 ## Mise à jour et sauvegarde : procédure à exécuter ultérieurement
 

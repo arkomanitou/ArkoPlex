@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sync"
 
 	"pelagica-backend/models"
@@ -18,11 +19,11 @@ type ThemeStore struct {
 	mu     sync.RWMutex
 }
 
-func NewThemeStore(dir string) (*ThemeStore, error) {
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return nil, err
-	}
+var themeIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$`)
 
+func ValidThemeID(id string) bool { return themeIDPattern.MatchString(id) }
+
+func NewThemeStore(dir string) (*ThemeStore, error) {
 	store := &ThemeStore{
 		dir:    dir,
 		themes: make(map[string]models.Theme),
@@ -37,6 +38,9 @@ func NewThemeStore(dir string) (*ThemeStore, error) {
 
 func (s *ThemeStore) loadAll() error {
 	files, err := os.ReadDir(s.dir)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
 	if err != nil {
 		return err
 	}
@@ -47,6 +51,9 @@ func (s *ThemeStore) loadAll() error {
 		}
 
 		id := file.Name()[:len(file.Name())-len(".json")]
+		if !ValidThemeID(id) {
+			continue
+		}
 		path := filepath.Join(s.dir, file.Name())
 
 		data, err := os.ReadFile(path)
@@ -84,6 +91,9 @@ func (s *ThemeStore) GetAll() []models.ThemeSummary {
 }
 
 func (s *ThemeStore) Get(id string) (models.Theme, error) {
+	if !ValidThemeID(id) {
+		return models.Theme{}, errors.New("invalid theme ID")
+	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -103,6 +113,9 @@ func (s *ThemeStore) Write(id string, theme models.Theme) (string, error) {
 		id = uuid.New().String()
 	}
 
+	if !ValidThemeID(id) {
+		return "", errors.New("invalid theme ID")
+	}
 	data, err := json.MarshalIndent(theme, "", "  ")
 	if err != nil {
 		return "", err
@@ -110,17 +123,19 @@ func (s *ThemeStore) Write(id string, theme models.Theme) (string, error) {
 
 	path := filepath.Join(s.dir, id+".json")
 
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := AtomicPrivateWrite(path, data); err != nil {
 		return "", err
 	}
 
-	// Reload fresh from disk
-	s.loadAll()
+	s.themes[id] = theme
 
 	return id, nil
 }
 
 func (s *ThemeStore) Delete(id string) error {
+	if !ValidThemeID(id) {
+		return errors.New("invalid theme ID")
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

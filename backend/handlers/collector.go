@@ -24,6 +24,7 @@ func PostStatsConsent(c fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"consent": consent,
+		"consent":       collector.HasStatsConsent(),
+		"storedConsent": consent,
 	})
 }

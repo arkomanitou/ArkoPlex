@@ -118,8 +118,10 @@ def main():
             check('Legacy config endpoint responds', status == 200 and isinstance(json.loads(body), dict))
             status, body, _ = request(WEB + '/api/stats-consent')
             check('Statistics consent is denied', status == 200 and json.loads(body) == {'consent': 2})
+            status, body, _ = request(WEB + '/api/stats-consent?consent=true', method='POST')
+            check('Unauthenticated consent change is rejected', status == 403)
             status, body, _ = request(WEB + '/api/themes?jellyfin_url=https%3A%2F%2Fbaseline.invalid')
-            check('Themes API initializes isolated local storage', status == 200 and isinstance(json.loads(body), list))
+            check('Unconfigured themes refuse request-selected storage', status == 400 and not Path(tmp, 'servers').exists())
             status, body, _ = request(WEB + '/api/themes', method='POST', data=b'{}')
             check('Unauthenticated theme mutation is rejected', status == 403)
 

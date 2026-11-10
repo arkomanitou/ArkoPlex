@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"pelagica-backend/upstream"
 	"strings"
 	"time"
 
@@ -18,6 +19,8 @@ import (
 )
 
 const seerSessionCookieName = "seer_session"
+
+var seerHTTPClient = upstream.NewClient(15 * time.Second)
 
 func getSeerURL(c fiber.Ctx) (string, error) {
 	cfgData, err := services.ReadArkoPlexConfig()
@@ -59,14 +62,14 @@ func SeerLogin(c fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(models.APIError{Error: "Failed to build Seer request"})
 	}
 
-	resp, err := http.Post(seerURL+"/api/v1/auth/jellyfin", "application/json", bytes.NewReader(payload))
+	resp, err := seerPost(c, seerURL+"/api/v1/auth/jellyfin", "application/json", bytes.NewReader(payload))
 	if err != nil {
 		slog.Error("Seer login failed", "error", err)
 		return c.Status(fiber.StatusBadGateway).JSON(models.APIError{Error: "Failed to reach Seer"})
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := upstream.ReadAll(resp.Body, upstream.MaxResponseBytes)
 	if err != nil {
 		return c.Status(fiber.StatusBadGateway).JSON(models.APIError{Error: "Failed to read Seer response"})
 	}
@@ -103,14 +106,14 @@ func SeerQuickConnectInitiate(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadGateway).JSON(models.APIError{Error: "Seer not configured"})
 	}
 
-	resp, err := http.Post(seerURL+"/api/v1/auth/jellyfin/quickconnect/initiate", "application/json", nil)
+	resp, err := seerPost(c, seerURL+"/api/v1/auth/jellyfin/quickconnect/initiate", "application/json", nil)
 	if err != nil {
 		slog.Error("Seer quick connect initiate failed", "error", err)
 		return c.Status(fiber.StatusBadGateway).JSON(models.APIError{Error: "Failed to reach Seer"})
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := upstream.ReadAll(resp.Body, upstream.MaxResponseBytes)
 	if err != nil {
 		return c.Status(fiber.StatusBadGateway).JSON(models.APIError{Error: "Failed to read Seer response"})
 	}
@@ -140,14 +143,14 @@ func SeerQuickConnectAuthenticate(c fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(models.APIError{Error: "Failed to build Seer request"})
 	}
 
-	resp, err := http.Post(seerURL+"/api/v1/auth/jellyfin/quickconnect/authenticate", "application/json", bytes.NewReader(payload))
+	resp, err := seerPost(c, seerURL+"/api/v1/auth/jellyfin/quickconnect/authenticate", "application/json", bytes.NewReader(payload))
 	if err != nil {
 		slog.Error("Seer quick connect authenticate failed", "error", err)
 		return c.Status(fiber.StatusBadGateway).JSON(models.APIError{Error: "Failed to reach Seer"})
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := upstream.ReadAll(resp.Body, upstream.MaxResponseBytes)
 	if err != nil {
 		return c.Status(fiber.StatusBadGateway).JSON(models.APIError{Error: "Failed to read Seer response"})
 	}
@@ -173,12 +176,15 @@ func GetSeerQuickConnectSupported(c fiber.Ctx) error {
 		return c.JSON(seerQuickConnectSupportedResponse{Supported: false})
 	}
 
-	resp, err := http.Get(seerURL + "/api/v1/auth/jellyfin/quickconnect/check?secret=-")
+	resp, err := seerGet(c, seerURL+"/api/v1/auth/jellyfin/quickconnect/check?secret=-")
 	if err != nil {
 		return c.JSON(seerQuickConnectSupportedResponse{Supported: false})
 	}
 	defer resp.Body.Close()
-	io.Copy(io.Discard, resp.Body)
+	_, err = upstream.ReadAll(resp.Body, upstream.MaxResponseBytes)
+	if err != nil {
+		return c.JSON(seerQuickConnectSupportedResponse{Supported: false})
+	}
 
 	return c.JSON(seerQuickConnectSupportedResponse{Supported: resp.StatusCode == http.StatusBadRequest})
 }
@@ -208,14 +214,14 @@ func SeerLogout(c fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusNoContent)
 	}
 
-	req, err := http.NewRequest(http.MethodPost, seerURL+"/api/v1/auth/logout", nil)
+	req, err := http.NewRequestWithContext(c.Context(), http.MethodPost, seerURL+"/api/v1/auth/logout", nil)
 	if err != nil {
 		slog.Error("Failed to build Seer logout request", "error", err)
 		return c.SendStatus(fiber.StatusNoContent)
 	}
 	req.AddCookie(&http.Cookie{Name: "connect.sid", Value: session})
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := seerHTTPClient.Do(req)
 	if err != nil {
 		slog.Error("Seer logout failed", "error", err)
 		return c.SendStatus(fiber.StatusNoContent)
@@ -231,7 +237,7 @@ func proxySeerRequest(c fiber.Ctx, seerPath string) error {
 		return c.Status(fiber.StatusBadGateway).JSON(models.APIError{Error: "Seer not configured"})
 	}
 
-	req, err := http.NewRequest(http.MethodGet, seerURL+seerPath, nil)
+	req, err := http.NewRequestWithContext(c.Context(), http.MethodGet, seerURL+seerPath, nil)
 	if err != nil {
 		slog.Error("Failed to build Seer request", "error", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(models.APIError{Error: "Failed to build Seer request"})
@@ -241,14 +247,14 @@ func proxySeerRequest(c fiber.Ctx, seerPath string) error {
 		req.AddCookie(&http.Cookie{Name: "connect.sid", Value: session})
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := seerHTTPClient.Do(req)
 	if err != nil {
 		slog.Error("Seer request failed", "error", err)
 		return c.Status(fiber.StatusBadGateway).JSON(models.APIError{Error: "Failed to reach Seer"})
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := upstream.ReadAll(resp.Body, upstream.MaxResponseBytes)
 	if err != nil {
 		slog.Error("Failed to read Seer response", "error", err)
 		return c.Status(fiber.StatusBadGateway).JSON(models.APIError{Error: "Failed to read Seer response"})
@@ -302,7 +308,7 @@ func PostSeerRequest(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadGateway).JSON(models.APIError{Error: "Seer not configured"})
 	}
 
-	req, err := http.NewRequest(http.MethodPost, seerURL+"/api/v1/request", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(c.Context(), http.MethodPost, seerURL+"/api/v1/request", bytes.NewReader(body))
 	if err != nil {
 		slog.Error("Failed to build Seer request", "error", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(models.APIError{Error: "Failed to build Seer request"})
@@ -313,14 +319,14 @@ func PostSeerRequest(c fiber.Ctx) error {
 		req.AddCookie(&http.Cookie{Name: "connect.sid", Value: session})
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := seerHTTPClient.Do(req)
 	if err != nil {
 		slog.Error("Seer request failed", "error", err)
 		return c.Status(fiber.StatusBadGateway).JSON(models.APIError{Error: "Failed to reach Seer"})
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := upstream.ReadAll(resp.Body, upstream.MaxResponseBytes)
 	if err != nil {
 		slog.Error("Failed to read Seer response", "error", err)
 		return c.Status(fiber.StatusBadGateway).JSON(models.APIError{Error: "Failed to read Seer response"})
@@ -353,20 +359,23 @@ func GetSeerrStatus(c fiber.Ctx) error {
 		return c.JSON(seerrStatusResponse{LoggedIn: false})
 	}
 
-	req, err := http.NewRequest(http.MethodGet, seerURL+"/api/v1/auth/me", nil)
+	req, err := http.NewRequestWithContext(c.Context(), http.MethodGet, seerURL+"/api/v1/auth/me", nil)
 	if err != nil {
 		slog.Error("Failed to build Seer status request", "error", err)
 		return c.JSON(seerrStatusResponse{LoggedIn: false})
 	}
 	req.AddCookie(&http.Cookie{Name: "connect.sid", Value: session})
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := seerHTTPClient.Do(req)
 	if err != nil {
 		slog.Error("Seer status check failed", "error", err)
 		return c.JSON(seerrStatusResponse{LoggedIn: false})
 	}
 	defer resp.Body.Close()
-	io.Copy(io.Discard, resp.Body)
+	_, err = upstream.ReadAll(resp.Body, upstream.MaxResponseBytes)
+	if err != nil {
+		return c.JSON(seerrStatusResponse{LoggedIn: false})
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		clearSeerSessionCookie(c)
@@ -374,4 +383,21 @@ func GetSeerrStatus(c fiber.Ctx) error {
 	}
 
 	return c.JSON(seerrStatusResponse{LoggedIn: true})
+}
+
+func seerPost(c fiber.Ctx, target, contentType string, body io.Reader) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(c.Context(), http.MethodPost, target, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", contentType)
+	return seerHTTPClient.Do(req)
+}
+
+func seerGet(c fiber.Ctx, target string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(c.Context(), http.MethodGet, target, nil)
+	if err != nil {
+		return nil, err
+	}
+	return seerHTTPClient.Do(req)
 }
