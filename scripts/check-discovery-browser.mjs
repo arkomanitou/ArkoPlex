@@ -148,7 +148,7 @@ try {
             const action = hero.getByRole('link', { name: /^(Reprendre|Regarder|Choisir un épisode)$/ });
             const actionBox = await action.boundingBox();
             const pagerBox = await hero.locator('.arko-hero-pager').boundingBox();
-            check(`Action lisible sans chevauchement à ${width}px : ${item.Id}`, actionBox.x >= box.x && actionBox.x + actionBox.width <= box.x + box.width + 1 && actionBox.y + actionBox.height <= pagerBox.y);
+            check(`Action lisible sans chevauchement à ${width}px : ${item.Id}`, actionBox.x >= box.x && actionBox.x + actionBox.width <= box.x + box.width + 1 && (actionBox.y + actionBox.height <= pagerBox.y || actionBox.y >= pagerBox.y + pagerBox.height || actionBox.x + actionBox.width <= pagerBox.x || actionBox.x >= pagerBox.x + pagerBox.width));
             if (item.Id === 'hero-series') check(`Une série conserve son lien de fiche à ${width}px`, await action.getAttribute('href') === '/item/hero-series');
         }
         check(`Accueil sans débordement horizontal à ${width}px`, await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
