@@ -207,6 +207,8 @@ export function usePlaybackInfo(
             return { playMethod, mediaSource: source, playSessionId, liveStreamId };
         },
         enabled: !!itemId,
+        // A completed play session must not be reused on a later visit.
+        gcTime: 0,
         staleTime: 30_000,
         refetchOnWindowFocus: false,
         refetchOnReconnect: false,

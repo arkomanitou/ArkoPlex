@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import axios from 'axios';
+import { stopPlaybackSession } from '../../packages/core/src/hooks/usePlaybackStop';
 import type { MediaStream } from '@jellyfin/sdk/lib/generated-client/models';
 import {
     getPlaybackStreamUrl,
@@ -149,6 +150,59 @@ export async function runChecks() {
         );
         check('Le SDK transmet aussi la sélection explicite PGS au serveur', () => {
             assert.equal(captured[3].body.SubtitleStreamIndex, 4);
+        });
+        const stops: {
+            url: string;
+            method?: string;
+            data?: Record<string, unknown>;
+            params?: Record<string, unknown>;
+        }[] = [];
+        let rejectReport = false;
+        axios.defaults.adapter = async (config) => {
+            stops.push({
+                url: config.url ?? '',
+                method: config.method,
+                data: typeof config.data === 'string' ? JSON.parse(config.data) : config.data,
+                params: config.params,
+            });
+            if (rejectReport && config.method === 'post')
+                throw new Error('fixture report unavailable');
+            return { status: 204, statusText: 'No Content', headers: {}, config, data: undefined };
+        };
+        await stopPlaybackSession({
+            itemId: 'off-fixture',
+            positionTicks: 123000000,
+            playSessionId: 'only-this-play-session',
+        });
+        check('Quitter la vidéo signale la bonne session et coupe uniquement son encodage', () => {
+            const report = stops.find((r) => r.method === 'post')!;
+            const stop = stops.find((r) => r.method === 'delete')!;
+            assert.equal(report.data?.PlaySessionId, 'only-this-play-session');
+            assert.equal(report.data?.PositionTicks, 123000000);
+            assert.equal(report.data?.SessionId, undefined);
+            assert.equal(new URL(stop.url).pathname, '/Videos/ActiveEncodings');
+            assert.equal(stop.params?.playSessionId, 'only-this-play-session');
+            assert.ok(stop.params?.deviceId);
+            assert.equal(stops.length, 2);
+        });
+        stops.length = 0;
+        rejectReport = true;
+        await assert.rejects(
+            stopPlaybackSession({
+                itemId: 'off-fixture',
+                positionTicks: 0,
+                playSessionId: 'stop-even-on-report-error',
+            })
+        );
+        check('Une erreur de suivi ne laisse pas tourner la conversion', () => {
+            assert.equal(stops.filter((r) => r.method === 'delete').length, 1);
+        });
+        stops.length = 0;
+        rejectReport = false;
+        await stopPlaybackSession({ itemId: 'music-fixture', positionTicks: 0 });
+        check('Sans identifiant de lecture aucun arrêt global des conversions n’est envoyé', () => {
+            assert.equal(stops.length, 1);
+            assert.equal(stops[0].method, 'post');
         });
     } finally {
         axios.defaults.adapter = originalAdapter;

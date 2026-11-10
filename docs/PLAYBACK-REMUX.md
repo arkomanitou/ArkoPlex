@@ -51,3 +51,24 @@ promet pas une lecture directe universelle.
 Référence : https://jellyfin.org/docs/general/post-install/transcoding/
 
 Source du contrôle de source : https://github.com/jellyfin/jellyfin/blob/master/Jellyfin.Api/Helpers/MediaInfoHelper.cs (`SetDeviceSpecificData`).
+
+## Arrêt du lecteur
+
+La sortie de la page et le changement de session de lecture transmettent
+`PlaySessionId` à `Sessions/Playing/Stopped`, puis demandent l’arrêt de
+`Videos/ActiveEncodings` avec l’identifiant de l’appareil et de cette lecture.
+Les deux demandes sont indépendantes : une erreur de suivi n’empêche pas
+la demande d’arrêt FFmpeg. Aucun arrêt global n’est envoyé quand l’identifiant
+est absent (lecture audio existante, par exemple).
+
+L’arrêt ne dépend plus de la première entrée de `/Sessions`, qui pourrait
+appartenir à un autre appareil. La libération du flux est liée à la durée de vie
+de sa session, séparée des mises à jour du suivi de progression. Une négociation
+inactive n’est pas conservée pour une prochaine visite du lecteur.
+
+Vérifier sur le serveur que FFmpeg se termine après la sortie du lecteur,
+sans attendre son délai de sécurité, puis relancer le même titre pour contrôler
+qu’une nouvelle session est créée. Cette demande vise une conversion temporaire,
+pas une application, un volume ou un fichier de bibliothèque.
+
+Référence : https://github.com/jellyfin/jellyfin-kodi/blob/master/jellyfin_kodi/jellyfin/api.py (`close_transcode`).

@@ -292,25 +292,22 @@ const PlayerPage = () => {
                 clearInterval(progressReportingIntervalRef.current);
             }
 
-            // Here we need the last know position since the player might be already in the shadow realm
-            stopPlayback({ itemId, positionTicks: lastPositionRef.current });
-
             if (liveStreamIdRef.current) {
                 closeLiveStream(liveStreamIdRef.current);
                 liveStreamIdRef.current = undefined;
             }
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [
-        itemId,
-        player,
-        reportProgress,
-        startPlayback,
-        startTicks,
-        stopPlayback,
-        closeLiveStream,
-        clearPlayback,
-    ]);
+    }, [itemId, player, reportProgress, startPlayback, startTicks, closeLiveStream, clearPlayback]);
+
+    // Own server resources by play session, not by progress-effect rerenders.
+    // Switching audio/subtitle modes stops only the previous encoding.
+    useEffect(() => {
+        if (!itemId || !playSessionId) return;
+        return () => {
+            stopPlayback({ itemId, positionTicks: lastPositionRef.current, playSessionId });
+        };
+    }, [itemId, playSessionId, stopPlayback]);
 
     useEffect(() => {
         lastPositionRef.current = startTicks;
