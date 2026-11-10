@@ -49,6 +49,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version-file: .node-version
+          package-manager-cache: false
       - run: npm install --global "$(node -p 'require("./package.json").packageManager')"
       - run: pnpm install --frozen-lockfile --filter pelagica...
       - run: pnpm --filter pelagica run build > "$RUNNER_TEMP/arkoplex-web-build.log" 2>&1
@@ -93,3 +94,4 @@ jobs:
         env:
           CGO_ENABLED: '1'
         run: go test -race ./...
+
