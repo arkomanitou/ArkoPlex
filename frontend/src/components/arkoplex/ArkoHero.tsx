@@ -9,6 +9,7 @@ import {
 } from '@pelagica/core';
 import { buildPlayerUrl } from '@/utils/playerUrl';
 import FavoriteButton from '@/components/FavoriteButton';
+import { Button } from '@/components/ui/button';
 import { CinematicSurface } from './CinematicSurface';
 import { useHeroRotation } from './useHeroRotation';
 
@@ -56,11 +57,6 @@ export function ArkoHero({
         );
     const index = rotation.index;
     const item = items[index];
-    const position = item.UserData?.PlaybackPositionTicks ?? 0;
-    const runtime = item.RunTimeTicks ?? 0;
-    const progress = runtime > 0 ? Math.max(0, Math.min(100, (position / runtime) * 100)) : 0;
-    const isSeries = item.Type === 'Series';
-    const playURL = isSeries ? `/item/${item.Id}` : buildPlayerUrl(item.Id!, '/');
     return (
         <section
             aria-label={title || 'Le choix du soir'}
@@ -91,61 +87,19 @@ export function ArkoHero({
                         />
                     )}
                 </div>
-                <div
-                    key={item.Id}
-                    className="arko-hero-copy"
-                    aria-live={rotation.running ? 'off' : 'polite'}
-                    aria-atomic="true"
-                >
-                    <p className="arko-eyebrow">{title || 'Le choix du soir'}</p>
-                    <h1 className="arko-hero-title">{item.Name}</h1>
-                    <div className="arko-hero-meta">
-                        {item.ProductionYear && <span>{item.ProductionYear}</span>}
-                        {runtime > 0 && <span>{ticksToReadableTime(runtime)}</span>}
-                        {item.Genres?.slice(0, 2).map((genre) => (
-                            <span key={genre}>{genre}</span>
-                        ))}
-                        {item.CommunityRating != null && (
-                            <span className="arko-rating">
-                                <Star size={13} aria-hidden="true" />
-                                {item.CommunityRating.toFixed(1)}
-                            </span>
-                        )}
-                    </div>
-                    {item.Overview && (
-                        <p className="arko-hero-overview">
-                            {item.Overview.replace(/<[^>]*>/g, '')}
-                        </p>
-                    )}
-                    <div className="arko-hero-actions">
-                        <Link className="arko-primary-action" to={playURL}>
-                            <Play size={18} aria-hidden="true" />
-                            {isSeries
-                                ? 'Choisir un épisode'
-                                : position > 0
-                                  ? 'Reprendre'
-                                  : 'Regarder'}
-                        </Link>
-                        <Link className="arko-secondary-action" to={`/item/${item.Id}`}>
-                            <Info size={18} aria-hidden="true" />
-                            Découvrir
-                        </Link>
-                        <FavoriteButton item={item} showFavoriteButton={showFavoriteButton} />
-                    </div>
-                    {progress > 0 && !isSeries && (
-                        <div className="arko-hero-progress">
-                            <span
-                                role="progressbar"
-                                aria-label="Progression de lecture"
-                                aria-valuenow={Math.round(progress)}
-                                aria-valuemin={0}
-                                aria-valuemax={100}
-                            >
-                                <span style={{ width: `${progress}%` }} />
-                            </span>
-                            <span>{ticksToReadableTime(position)} regardées</span>
-                        </div>
-                    )}
+                {/* Overlaid panels reserve the tallest copy at every viewport width.
+                    Inactive panels contribute to layout, but cannot be read or focused. */}
+                <div className="arko-hero-copies">
+                    {items.map((candidate, candidateIndex) => (
+                        <ArkoHeroCopy
+                            key={candidate.Id ?? candidateIndex}
+                            item={candidate}
+                            active={candidateIndex === index}
+                            running={rotation.running}
+                            title={title}
+                            showFavoriteButton={showFavoriteButton}
+                        />
+                    ))}
                 </div>
                 {items.length > 1 && (
                     <div className="arko-hero-pager">
@@ -186,5 +140,84 @@ export function ArkoHero({
                 )}
             </CinematicSurface>
         </section>
+    );
+}
+
+function ArkoHeroCopy({
+    item,
+    active,
+    running,
+    title,
+    showFavoriteButton,
+}: {
+    item: NonNullable<ReturnType<typeof useMediaBarItems>['data']>[number];
+    active: boolean;
+    running: boolean;
+    title?: string;
+    showFavoriteButton: boolean;
+}) {
+    const position = item.UserData?.PlaybackPositionTicks ?? 0;
+    const runtime = item.RunTimeTicks ?? 0;
+    const progress = runtime > 0 ? Math.max(0, Math.min(100, (position / runtime) * 100)) : 0;
+    const isSeries = item.Type === 'Series';
+    const playURL = isSeries ? `/item/${item.Id}` : buildPlayerUrl(item.Id!, '/');
+    return (
+        <div
+            className="arko-hero-copy"
+            inert={!active}
+            aria-hidden={!active || undefined}
+            aria-live={active && !running ? 'polite' : 'off'}
+            aria-atomic="true"
+        >
+            <p className="arko-eyebrow">{title || 'Le choix du soir'}</p>
+            <h1 className="arko-hero-title">{item.Name}</h1>
+            <div className="arko-hero-meta">
+                {item.ProductionYear && <span>{item.ProductionYear}</span>}
+                {runtime > 0 && <span>{ticksToReadableTime(runtime)}</span>}
+                {item.Genres?.slice(0, 2).map((genre) => (
+                    <span key={genre}>{genre}</span>
+                ))}
+                {item.CommunityRating != null && (
+                    <span className="arko-rating">
+                        <Star size={13} aria-hidden="true" />
+                        {item.CommunityRating.toFixed(1)}
+                    </span>
+                )}
+            </div>
+            {item.Overview && (
+                <p className="arko-hero-overview">{item.Overview.replace(/<[^>]*>/g, '')}</p>
+            )}
+            <div className="arko-hero-actions">
+                <Link className="arko-primary-action" to={playURL}>
+                    <Play size={18} aria-hidden="true" />
+                    {isSeries ? 'Choisir un épisode' : position > 0 ? 'Reprendre' : 'Regarder'}
+                </Link>
+                <Link className="arko-secondary-action" to={`/item/${item.Id}`}>
+                    <Info size={18} aria-hidden="true" />
+                    Découvrir
+                </Link>
+                {active ? (
+                    <FavoriteButton item={item} showFavoriteButton={showFavoriteButton} />
+                ) : showFavoriteButton ? (
+                    <span className="arko-favorite-wrap">
+                        <Button size="icon" variant="outline" tabIndex={-1} />
+                    </span>
+                ) : null}
+            </div>
+            {progress > 0 && !isSeries && (
+                <div className="arko-hero-progress">
+                    <span
+                        role="progressbar"
+                        aria-label="Progression de lecture"
+                        aria-valuenow={Math.round(progress)}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                    >
+                        <span style={{ width: `${progress}%` }} />
+                    </span>
+                    <span>{ticksToReadableTime(position)} regardées</span>
+                </div>
+            )}
+        </div>
     );
 }
