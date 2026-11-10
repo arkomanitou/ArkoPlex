@@ -124,7 +124,7 @@ export function usePlaybackInfo(
             const api = getApi();
             const mediaInfoApi = getMediaInfoApi(api);
 
-            const response = await mediaInfoApi.getPostedPlaybackInfo({
+            const request = {
                 itemId: itemId!,
                 userId,
                 maxStreamingBitrate: 80_000_000,
@@ -139,10 +139,11 @@ export function usePlaybackInfo(
                     SubtitleStreamIndex: subtitleStreamIndex,
                     DeviceProfile: buildDeviceProfile({ excludeHevc: forceTranscode }),
                 },
-            });
+            };
+            let response = await mediaInfoApi.getPostedPlaybackInfo(request);
 
             const mediaSources = response.data.MediaSources;
-            const playSessionId = response.data.PlaySessionId || '';
+            let playSessionId = response.data.PlaySessionId || '';
 
             if (!mediaSources || mediaSources.length === 0) {
                 throw new Error('No media sources available');
@@ -150,6 +151,23 @@ export function usePlaybackInfo(
 
             let source = mediaSources[0];
             let liveStreamId: string | undefined;
+
+            // Jellyfin applies audio/subtitle overrides only when MediaSourceId
+            // matches the source being negotiated. Its initial choice can have a
+            // different ID from the item (multiple versions, alternate sources).
+            if (!source.RequiresOpening) {
+                if (!source.Id) throw new Error('Playback media source has no ID');
+                const mediaSourceId = source.Id;
+                response = await mediaInfoApi.getPostedPlaybackInfo({
+                    ...request,
+                    mediaSourceId,
+                    playbackInfoDto: { ...request.playbackInfoDto, MediaSourceId: mediaSourceId },
+                });
+                const negotiated = response.data.MediaSources?.find((s) => s.Id === mediaSourceId);
+                if (!negotiated) throw new Error('Selected playback media source is unavailable');
+                source = negotiated;
+                playSessionId = response.data.PlaySessionId || '';
+            }
 
             // live TV channels return a placeholder MediaSource that must be "opened" (starting the tuner stream) before it has a usable playback URL
             if (source.RequiresOpening) {
