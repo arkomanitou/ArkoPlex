@@ -42,7 +42,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getLogoUrl, getPrimaryImageUrl, getTrickplayImageUrl } from '@pelagica/core';
 import { useReportPlaybackProgress } from '@pelagica/core';
 import { getRuntimePlaybackStats, type RuntimePlaybackStats } from '@/utils/playbackStats';
-import { useSession } from '@pelagica/core';
+import { useSession, isBitmapSubtitle } from '@pelagica/core';
 import {
     removeLastSubtitleLanguage,
     setLastAudioLanguage,
@@ -879,6 +879,7 @@ const PlayerControls = ({
                                                 {stream.DisplayTitle ||
                                                     stream.Language ||
                                                     'Unknown'}
+                                                {isBitmapSubtitle(stream) && ' · conversion vidéo'}
                                             </DropdownMenuRadioItem>
                                         ))}
                                     </DropdownMenuRadioGroup>

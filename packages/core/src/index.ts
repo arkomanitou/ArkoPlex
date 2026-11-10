@@ -117,6 +117,7 @@ export * from './types/locales';
 export * from './utils/authErrorHandler';
 export * from './utils/detailBadges';
 export * from './utils/discovery';
+export * from './utils/playbackSubtitles';
 export * from './utils/deviceId';
 export * from './utils/discoverServers';
 export * from './utils/genreItemCache';
