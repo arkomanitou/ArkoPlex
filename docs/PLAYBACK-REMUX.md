@@ -19,6 +19,10 @@ Deux problèmes du client sont corrigés :
 
 ## Comportement
 
+- La première négociation choisit la source. Une seconde négociation transmet
+  son véritable `MediaSourceId` (qui peut différer de l’identifiant du titre)
+  dans la requête et le corps : Jellyfin n’applique les index audio/sous-titres
+  qu’à la source correspondante. La réponse finale fournit le flux et la session.
 - Sous-titres désactivés : envoyer explicitement `SubtitleStreamIndex=-1`.
 - SRT/VTT/ASS : rendu dans le client, avec `-1` côté serveur pour éviter une
   seconde piste implicite incrustée.
@@ -45,3 +49,5 @@ ou une sélection PGS peut toujours nécessiter un transcodage : ce correctif ne
 promet pas une lecture directe universelle.
 
 Référence : https://jellyfin.org/docs/general/post-install/transcoding/
+
+Source du contrôle de source : https://github.com/jellyfin/jellyfin/blob/master/Jellyfin.Api/Helpers/MediaInfoHelper.cs (`SetDeviceSpecificData`).

@@ -80,7 +80,16 @@ export async function runChecks() {
                 data: {
                     MediaSources: [
                         {
-                            Id: 'fixture',
+                            Id: 'fixture-source-not-item',
+                            DefaultSubtitleStreamIndex: new URL(
+                                config.url!,
+                                'https://jellyfin.invalid'
+                            ).searchParams.get('mediaSourceId')
+                                ? (typeof config.data === 'string'
+                                      ? JSON.parse(config.data)
+                                      : config.data
+                                  ).SubtitleStreamIndex
+                                : 4,
                             SupportsDirectStream: true,
                             Container: 'mkv',
                             TranscodingUrl: '/Videos/fixture/master.m3u8',
@@ -110,20 +119,36 @@ export async function runChecks() {
                 .getQueryCache()
                 .getAll()
                 .find((q) => q.queryKey[1] === (bitmap ? 'bitmap-fixture' : 'off-fixture'))!;
-            await client.fetchQuery(query.options);
+            const result = await client.fetchQuery(query.options);
+            assert.equal(result.mediaSource.DefaultSubtitleStreamIndex, bitmap ? 4 : -1);
         }
         check(
             'Le SDK transmet explicitement -1 et conserve la copie vidéo lorsque les sous-titres sont désactivés',
             () => {
-                const req = captured[0];
+                const req = captured[1];
                 const u = new URL(req.url, 'https://jellyfin.invalid');
                 assert.equal(u.searchParams.get('subtitleStreamIndex'), '-1');
                 assert.equal(req.body.SubtitleStreamIndex, -1);
                 assert.equal(u.searchParams.get('allowVideoStreamCopy'), 'true');
             }
         );
+        check(
+            'Le choix de piste est renégocié avec le véritable identifiant de source, distinct du titre',
+            () => {
+                assert.equal(captured.length, 4);
+                for (const req of [captured[1], captured[3]]) {
+                    assert.equal(
+                        new URL(req.url, 'https://jellyfin.invalid').searchParams.get(
+                            'mediaSourceId'
+                        ),
+                        'fixture-source-not-item'
+                    );
+                    assert.equal(req.body.MediaSourceId, 'fixture-source-not-item');
+                }
+            }
+        );
         check('Le SDK transmet aussi la sélection explicite PGS au serveur', () => {
-            assert.equal(captured[1].body.SubtitleStreamIndex, 4);
+            assert.equal(captured[3].body.SubtitleStreamIndex, 4);
         });
     } finally {
         axios.defaults.adapter = originalAdapter;
