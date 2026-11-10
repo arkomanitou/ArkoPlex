@@ -110,6 +110,7 @@ try {
     check('Le compte Bob reçoit une autre sélection', !(await page.locator('main').innerText()).includes('La piste d’Alice'));
     await page.getByRole('link', { name: 'Accueil', exact: true }).click();
     await page.waitForURL(origin + '/');
+    await page.getByRole('heading', { name: 'Et si on regardait autre chose ?' }).waitFor({ state: 'hidden' });
     check('Les découvertes externes ne sont pas injectées dans l’accueil', !(await page.locator('main').innerText()).includes('Le prochain voyage'));
     outage = true;
     await page.goto(origin + '/discover?vue=movies');
