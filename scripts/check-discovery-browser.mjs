@@ -37,6 +37,13 @@ try {
     const errors = [];
     let outage = false;
     let connected = true;
+    let heroFixture = false;
+    const heroItems = [
+        { Id: 'hero-short', Name: 'Un soir', Type: 'Movie', ProductionYear: 2026, RunTimeTicks: 72000000000, UserData: { PlaybackPositionTicks: 1000000000 } },
+        { Id: 'hero-long', Name: 'Le fabuleux voyage des explorateurs au-delà des frontières de notre univers', Type: 'Movie', ProductionYear: 2025, RunTimeTicks: 72000000000, Genres: ['Science-fiction et aventure', 'Fantastique'], CommunityRating: 8.2, Overview: 'Une aventure aux confins de notre univers. '.repeat(30) },
+        { Id: 'hero-series', Name: 'Les mondes cachés', Type: 'Series' },
+        { Id: 'hero-broken', Name: 'Sans illustration', Type: 'Movie', Overview: 'Une courte histoire.' },
+    ];
     const artwork = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600"><defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="#123a4f"/><stop offset="1" stop-color="#887132"/></linearGradient></defs><rect width="400" height="600" fill="url(#g)"/><circle cx="240" cy="215" r="105" fill="#d5c485" opacity=".35"/><path d="M0 420L260 210L400 420V600H0Z" fill="#08111e"/></svg>`;
     await context.route('**/*', async route => {
         const req = route.request();
@@ -44,6 +51,13 @@ try {
         const json = (data, status = 200) => route.fulfill({ status, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': 'GET,POST,OPTIONS' }, body: JSON.stringify(data) });
         if (u.hostname === 'image.tmdb.org') return route.fulfill({ contentType: 'image/svg+xml', body: artwork });
         if (u.hostname === 'jellyfin.invalid') {
+            if (u.pathname.includes('/Images/Backdrop')) {
+                if (u.pathname.includes('hero-broken')) return route.fulfill({ status: 404 });
+                const [width, height] = u.pathname.includes('hero-long') ? [600, 900] : u.pathname.includes('hero-series') ? [2400, 600] : [1920, 1080];
+                return route.fulfill({ contentType: 'image/svg+xml', body: artwork.replace('width="400" height="600"', `width="${width}" height="${height}"`) });
+            }
+            const heroDetail = heroItems.find(item => u.pathname.endsWith('/Items/' + item.Id));
+            if (heroDetail) return json(heroDetail);
             if (u.pathname.endsWith('/Users/Me')) {
                 const user = await req.frame().evaluate(() => localStorage.getItem('jf_user'));
                 return json({ Id: user, Name: user === 'alice' ? 'Alice' : 'Bob', Policy: { IsAdministrator: false } });
@@ -51,6 +65,7 @@ try {
             if (u.pathname.endsWith('/Items')) {
                 const user = u.searchParams.get('userId') || u.searchParams.get('UserId');
                 const favorite = [...u.searchParams].some(([key, value]) => key.toLowerCase() === 'isfavorite' && value === 'true');
+                if (heroFixture && !favorite) return json({ Items: heroItems, TotalRecordCount: heroItems.length });
                 return json({ Items: favorite ? [{ Id: 'seed', Name: user === 'bob' ? 'Favori Bob' : 'Favori Alice', Type: 'Movie', ProviderIds: { Tmdb: user === 'bob' ? '2' : '1' } }] : [], TotalRecordCount: favorite ? 1 : 0 });
             }
             if (req.method() !== 'GET') return route.fulfill({ status: 204 });
@@ -58,7 +73,7 @@ try {
         }
         if (u.origin !== origin) { escapedCalls.push(req.url()); return route.abort(); }
         if (!u.pathname.startsWith('/api/')) return route.continue();
-        if (u.pathname === '/api/arkoplex/config') return json({ serverName: 'ArkoPlex', seerrUrl: 'https://seerr.invalid', nightPulseEnabled: true, homeScreenSections: [{ type: 'seerrDiscover', enabled: true }] });
+        if (u.pathname === '/api/arkoplex/config') return json({ serverName: 'ArkoPlex', seerrUrl: 'https://seerr.invalid', nightPulseEnabled: true, homeScreenSections: heroFixture ? [{ type: 'mediaBar', enabled: true, showFavoriteButton: true }] : [{ type: 'seerrDiscover', enabled: true }] });
         if (u.pathname === '/api/seerr/status') return json({ loggedIn: connected });
         if (u.pathname === '/api/seerr/discover/trending' || u.pathname === '/api/seerr/discover/movies' || u.pathname === '/api/seerr/discover/tv') {
             if (outage) return json({}, 503);
@@ -112,6 +127,37 @@ try {
     await page.waitForURL(origin + '/');
     await page.getByRole('heading', { name: 'Et si on regardait autre chose ?' }).waitFor({ state: 'hidden' });
     check('Les découvertes externes ne sont pas injectées dans l’accueil', !(await page.locator('main').innerText()).includes('Le prochain voyage'));
+    heroFixture = true;
+    await page.reload();
+    const hero = page.getByRole('region', { name: 'Le choix du soir', exact: true });
+    await hero.getByRole('heading', { name: 'Un soir', exact: true }).waitFor();
+    await page.evaluate(() => document.fonts.ready);
+    for (const width of [1440, 1024, 736, 390, 320]) {
+        await page.setViewportSize({ width, height: 1100 });
+        await page.evaluate(() => scrollTo(0, 0));
+        let frame;
+        for (const [index, item] of heroItems.entries()) {
+            await hero.getByRole('button', { name: `Afficher ${item.Name} (${index + 1} sur ${heroItems.length})`, exact: true }).click();
+            await hero.getByRole('heading', { name: item.Name, exact: true }).waitFor();
+            if (item.Id === 'hero-broken') await hero.locator('.arko-hero-backdrop img').waitFor({ state: 'detached' });
+            else await page.waitForFunction(() => document.querySelector('.arko-hero-backdrop img')?.naturalWidth > 0);
+            const box = await hero.boundingBox();
+            if (!frame) frame = box;
+            check(`Cadre du choix du soir stable à ${width}px : ${item.Id}`, Math.abs(box.height - frame.height) < 1 && Math.abs(box.width - frame.width) < 1);
+            check(`Un seul titre accessible à ${width}px : ${item.Id}`, await hero.getByRole('heading', { level: 1 }).count() === 1);
+            const action = hero.getByRole('link', { name: /^(Reprendre|Regarder|Choisir un épisode)$/ });
+            const actionBox = await action.boundingBox();
+            const pagerBox = await hero.locator('.arko-hero-pager').boundingBox();
+            check(`Action lisible sans chevauchement à ${width}px : ${item.Id}`, actionBox.x >= box.x && actionBox.x + actionBox.width <= box.x + box.width + 1 && actionBox.y + actionBox.height <= pagerBox.y);
+            if (item.Id === 'hero-series') check(`Une série conserve son lien de fiche à ${width}px`, await action.getAttribute('href') === '/item/hero-series');
+        }
+        check(`Accueil sans débordement horizontal à ${width}px`, await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    }
+    await hero.getByRole('button', { name: /Afficher Le fabuleux voyage/ }).click();
+    await page.screenshot({ path: root + 'browser-artifacts/hero-stable-mobile.png', fullPage: true });
+    await page.setViewportSize({ width: 1440, height: 1100 });
+    await page.screenshot({ path: root + 'browser-artifacts/hero-stable-desktop.png', fullPage: true });
+    heroFixture = false;
     outage = true;
     await page.goto(origin + '/discover?vue=movies');
     await page.getByText('Impossible de charger les découvertes pour le moment.').waitFor();
