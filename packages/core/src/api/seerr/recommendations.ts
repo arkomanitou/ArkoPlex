@@ -8,12 +8,14 @@ import type {
 } from './types';
 
 export async function getSeerrMovieRecommendations(
-    tmdbId: string
+    tmdbId: string,
+    signal?: AbortSignal
 ): Promise<SeerrRecommendationItem[]> {
     const response = await fetch(
         withBasePath(
             `/api/seerr/movie/${tmdbId}/recommendations?jellyfin_url=${encodeURIComponent(getServerUrl() || '')}`
-        )
+        ),
+        { signal }
     );
     if (!response.ok) {
         throw new Error(`API request failed: ${response.statusText}`);
@@ -28,11 +30,15 @@ export async function getSeerrMovieRecommendations(
     }));
 }
 
-export async function getSeerrTvRecommendations(tvId: string): Promise<SeerrRecommendationItem[]> {
+export async function getSeerrTvRecommendations(
+    tvId: string,
+    signal?: AbortSignal
+): Promise<SeerrRecommendationItem[]> {
     const response = await fetch(
         withBasePath(
             `/api/seerr/tv/${tvId}/recommendations?jellyfin_url=${encodeURIComponent(getServerUrl() || '')}`
-        )
+        ),
+        { signal }
     );
     if (!response.ok) {
         throw new Error(`API request failed: ${response.statusText}`);
@@ -49,7 +55,10 @@ export async function getSeerrTvRecommendations(tvId: string): Promise<SeerrReco
 
 export function getSeerrRecommendations(
     mediaType: SeerrMediaType,
-    id: string
+    id: string,
+    signal?: AbortSignal
 ): Promise<SeerrRecommendationItem[]> {
-    return mediaType === 'movie' ? getSeerrMovieRecommendations(id) : getSeerrTvRecommendations(id);
+    return mediaType === 'movie'
+        ? getSeerrMovieRecommendations(id, signal)
+        : getSeerrTvRecommendations(id, signal);
 }

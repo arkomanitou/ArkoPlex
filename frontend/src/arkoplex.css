@@ -656,7 +656,8 @@
     .arko-nav {
         order: 3;
         flex-basis: 100%;
-        gap: 25px;
+        gap: 16px;
+        justify-content: space-between;
     }
     .arko-nav > a {
         min-height: 37px;
@@ -738,7 +739,7 @@
         font-size: 16px;
     }
     .arko-nav {
-        gap: 23px;
+        gap: 9px;
     }
     .arko-hero {
         padding-inline: 19px;

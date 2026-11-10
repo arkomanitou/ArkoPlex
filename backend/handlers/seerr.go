@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"pelagica-backend/upstream"
 	"pelagica-backend/websecurity"
+	"strconv"
 	"strings"
 	"time"
 
@@ -311,15 +312,27 @@ func GetSeerPersonCombinedCredits(c fiber.Ctx) error {
 }
 
 func GetSeerDiscoverTrending(c fiber.Ctx) error {
-	return proxySeerRequest(c, "/api/v1/discover/trending")
+	return proxySeerDiscover(c, "trending")
 }
 
 func GetSeerDiscoverMovies(c fiber.Ctx) error {
-	return proxySeerRequest(c, "/api/v1/discover/movies")
+	return proxySeerDiscover(c, "movies")
 }
 
 func GetSeerDiscoverTv(c fiber.Ctx) error {
-	return proxySeerRequest(c, "/api/v1/discover/tv")
+	return proxySeerDiscover(c, "tv")
+}
+
+func proxySeerDiscover(c fiber.Ctx, kind string) error {
+	page := 1
+	if raw := c.Query("page"); raw != "" {
+		value, err := strconv.Atoi(raw)
+		if err != nil || value < 1 || value > 500 {
+			return c.SendStatus(400)
+		}
+		page = value
+	}
+	return proxySeerRequest(c, "/api/v1/discover/"+kind+"?page="+strconv.Itoa(page))
 }
 
 func PostSeerRequest(c fiber.Ctx) error {

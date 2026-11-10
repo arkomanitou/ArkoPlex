@@ -27,6 +27,7 @@ export function useFavorite(itemId: string | null | undefined) {
             return favorite;
         },
         onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['personalizedDiscovery'] });
             queryClient.invalidateQueries({ queryKey: ['userLibraryItem', itemId] });
             queryClient.invalidateQueries({ queryKey: ['item', itemId] });
             queryClient.invalidateQueries({ queryKey: ['favoriteAlbums'] });

@@ -5,13 +5,13 @@ import type { QueryClient } from '@tanstack/react-query';
 import { logoutFromSeerr } from './seerr/logout';
 
 export async function logout(queryClient: QueryClient) {
+    await queryClient.cancelQueries();
     try {
         const sessionApi = getSessionApi(getApi());
         await sessionApi.reportSessionEnded();
     } finally {
         await logoutFromSeerr();
         clearCredentials();
-        queryClient.invalidateQueries({ queryKey: ['currentUser'] });
-        queryClient.invalidateQueries({ queryKey: ['seerrLoginStatus'] });
+        queryClient.clear();
     }
 }

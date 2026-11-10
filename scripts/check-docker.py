@@ -197,6 +197,12 @@ def main():
             with_session = good_headers | {'Cookie': 'seer_session=fixture-session'}
             status, body, _ = request(url + base + '/api/seerr/status', headers=with_session)
             check('Seerr session is relayed using connect.sid', status == 200 and json.loads(body)['loggedIn'])
+            status, body, headers = request(url + base + '/api/seerr/requests?requestedBy=999', headers=with_session)
+            check('Own requests are scoped by verified Seerr identity through nginx', status == 200 and json.loads(body)['results'] == [] and headers.get('Cache-Control') == 'no-store')
+            status, _, _ = request(url + base + '/api/seerr/requests')
+            check('Own requests require a Seerr session', status == 401)
+            status, _, _ = request(url + base + '/discover')
+            check('Discovery route serves the application shell', status == 200)
             status, _, _ = request(url + base + '/api/seerr/request', method='POST', data=b'{"mediaType":"movie","mediaId":1}', headers=with_session)
             check('Same-origin Seerr requests retain downstream session permissions', status == 201)
             status, _, headers = request(url + base + '/api/seerr/logout', method='POST', headers=with_session)

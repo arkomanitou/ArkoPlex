@@ -20,6 +20,7 @@ const entries = [
     { label: 'Accueil', to: '/' },
     { label: 'Films', to: buildSectionItemsLink('Films', { types: ['Movie'] }) },
     { label: 'Séries', to: buildSectionItemsLink('Séries', { types: ['Series'] }) },
+    { label: 'À découvrir', to: '/discover' },
     {
         label: 'Favoris',
         to: buildSectionItemsLink('Favoris', { types: ['Movie', 'Series'], isFavorite: true }),
@@ -51,7 +52,12 @@ export function ArkoTopBar() {
                     <Link
                         key={entry.to}
                         to={entry.to}
-                        aria-current={current === entry.to ? 'page' : undefined}
+                        aria-current={
+                            current === entry.to ||
+                            (entry.to === '/discover' && location.pathname === '/discover')
+                                ? 'page'
+                                : undefined
+                        }
                     >
                         {entry.label}
                     </Link>

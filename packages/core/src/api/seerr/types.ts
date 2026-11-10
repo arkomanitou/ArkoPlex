@@ -4,6 +4,8 @@ export const SeerrMediaStatus = {
     PROCESSING: 3,
     PARTIALLY_AVAILABLE: 4,
     AVAILABLE: 5,
+    BLOCKLISTED: 6,
+    DELETED: 7,
 } as const;
 
 export type SeerrMediaStatus = (typeof SeerrMediaStatus)[keyof typeof SeerrMediaStatus];
@@ -17,6 +19,8 @@ export const SeerrRequestStatus = {
     PENDING: 1,
     APPROVED: 2,
     DECLINED: 3,
+    FAILED: 4,
+    COMPLETED: 5,
 } as const;
 
 export type SeerrRequestStatus = (typeof SeerrRequestStatus)[keyof typeof SeerrRequestStatus];

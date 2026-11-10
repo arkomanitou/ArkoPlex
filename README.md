@@ -25,10 +25,14 @@ appartiennent à leurs ayants droit ; ce client ne fournit aucun contenu.
 | --- | --- |
 | `main`, `arkoplex/jalon-2-night-pulse` | Jalon 2, référence GitHub `f648a693670846345c7b5ab304ea15ea47ba5722` |
 | `arkoplex:jalon2-night-pulse` | Tag local signalé comme installé ; aucune image publique ArkoPlex annoncée |
-| `arkoplex/hero-auto-rotation` | `464111760aec4e145ab251684f0ea1c751592079`, rotation préparée, non déployée |
-| `arkoplex/beta-preparation` | Documentation et CI préparées à partir de la branche de rotation ; aucun déploiement |
-| `arkoplex/security-hardening` | Premier lot de protections backend, basé sur la préparation bêta ; non déployé |
-| `arkoplex/seerr-https-docker` | Cookies/CSRF Seerr et contrôles Docker isolés ; non déployé |
+| `arkoplex/hero-auto-rotation` | Rotation intégrée à la bêta locale issue de `7b11003` |
+| `arkoplex/beta-preparation` | Documentation et CI intégrées à la bêta locale |
+| `arkoplex/security-hardening` | Premier lot de protections intégré à la bêta locale |
+| `arkoplex/seerr-https-docker` | Bêta `7b11003` installée séparément, premiers essais utilisateur concluants |
+| `arkoplex/discovery-personalized` | Jalon 3 : onglet À découvrir, personnalisation et suivi ; candidat non déployé |
+
+Le [jalon 3 — À découvrir](docs/DISCOVERY.md) décrit le parcours de demande,
+la personnalisation par compte et les vérifications avant installation.
 
 « Le choix du soir » comprend déjà une rotation à huit secondes, des points
 cliquables, pause/reprise et suspension au survol, au focus et lorsque l'onglet

@@ -94,6 +94,7 @@ func registerRoutes(app *fiber.App) {
 	api.Get("/seerr/tv/:tvId", handlers.GetSeerTvDetails)
 	api.Get("/seerr/person/:personId/combined_credits", handlers.GetSeerPersonCombinedCredits)
 	api.Post("/seerr/request", handlers.PostSeerRequest)
+	api.Get("/seerr/requests", handlers.GetSeerrOwnRequests)
 	api.Get("/seerr/search", handlers.GetSeerSearch)
 	api.Get("/seerr/status", handlers.GetSeerrStatus)
 	api.Get("/seerr/discover/trending", handlers.GetSeerDiscoverTrending)

@@ -31,6 +31,11 @@ class Fixture(BaseHTTPRequestHandler):
         elif self.path == '/seerr/api/v1/auth/me':
             valid = self.headers.get('Cookie') == 'connect.sid=fixture-session'
             self.reply(200 if valid else 401, {'id': 1} if valid else {})
+        elif self.path.startswith('/seerr/api/v1/request?'):
+            from urllib.parse import urlparse, parse_qs
+            query = parse_qs(urlparse(self.path).query)
+            valid = self.headers.get('Cookie') == 'connect.sid=fixture-session' and query.get('requestedBy') == ['1']
+            self.reply(200 if valid else 403, {'pageInfo': {'results': 0}, 'results': []} if valid else {})
         else:
             self.reply(404, {})
 
