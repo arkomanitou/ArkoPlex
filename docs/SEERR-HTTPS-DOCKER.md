@@ -62,7 +62,9 @@ préfixe peut demander une nouvelle connexion Seerr.
 - Le backend écoute sur loopback dans l'image ; seul le port HTTP de Nginx est
   prévu pour l'accès applicatif.
 - Le contrôle Docker `/health` traverse Nginx jusqu'au backend.
-- Un superviseur arrête les deux processus sur SIGTERM et termine le conteneur
+- Le signal d’arrêt Docker est explicitement SIGTERM, en remplacement du
+  SIGQUIT hérité de l’image Nginx. Un superviseur arrête les deux processus
+  sur ce signal et termine le conteneur
   si l'un des deux meurt. La politique de redémarrage reste un choix externe.
 - Le collecteur ne reçoit plus de jeton à la construction ; un éventuel secret
   reste une configuration runtime. Les statistiques restent désactivées par

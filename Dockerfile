@@ -90,4 +90,6 @@ EXPOSE 80
 HEALTHCHECK --interval=10s --timeout=4s --start-period=15s --retries=3 \
     CMD wget -q -T 3 -O /dev/null http://127.0.0.1/health || exit 1
 
+# The nginx base image defaults to SIGQUIT; our supervisor receives SIGTERM.
+STOPSIGNAL SIGTERM
 CMD ["/arkoplex-entrypoint.sh"]
