@@ -108,10 +108,18 @@ export function usePlaybackInfo(
     itemId: string | null | undefined,
     userId: string | undefined,
     audioStreamIndex?: number,
-    forceTranscode?: boolean
+    forceTranscode?: boolean,
+    subtitleStreamIndex = -1
 ) {
     return useQuery<PlaybackDecision>({
-        queryKey: ['playbackInfo', itemId, audioStreamIndex, forceTranscode],
+        queryKey: [
+            'playbackInfo',
+            itemId,
+            userId,
+            audioStreamIndex,
+            forceTranscode,
+            subtitleStreamIndex,
+        ],
         queryFn: async (): Promise<PlaybackDecision> => {
             const api = getApi();
             const mediaInfoApi = getMediaInfoApi(api);
@@ -121,12 +129,14 @@ export function usePlaybackInfo(
                 userId,
                 maxStreamingBitrate: 80_000_000,
                 audioStreamIndex,
+                subtitleStreamIndex,
                 enableDirectPlay: !forceTranscode,
                 enableDirectStream: !forceTranscode,
                 enableTranscoding: true,
                 allowVideoStreamCopy: !forceTranscode,
                 allowAudioStreamCopy: true,
                 playbackInfoDto: {
+                    SubtitleStreamIndex: subtitleStreamIndex,
                     DeviceProfile: buildDeviceProfile({ excludeHevc: forceTranscode }),
                 },
             });
@@ -150,6 +160,7 @@ export function usePlaybackInfo(
                         PlaySessionId: playSessionId,
                         ItemId: itemId,
                         AudioStreamIndex: audioStreamIndex,
+                        SubtitleStreamIndex: subtitleStreamIndex,
                         MaxStreamingBitrate: 80_000_000,
                         EnableDirectPlay: !forceTranscode,
                         EnableDirectStream: !forceTranscode,

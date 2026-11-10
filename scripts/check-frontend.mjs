@@ -20,7 +20,7 @@ const vite = await createServer({
     appType: 'custom',
 });
 try {
-    for (const module of ['/tests/nightpulse.ssr.tsx', '/tests/discovery.ssr.tsx']) {
+    for (const module of ['/tests/nightpulse.ssr.tsx', '/tests/discovery.ssr.tsx', '/tests/playback.ssr.tsx']) {
         const { runChecks } = await vite.ssrLoadModule(module);
         const results = await runChecks();
         for (const name of results) console.log('PASS ' + name);

@@ -6,6 +6,7 @@ import JASSUB from 'jassub';
 type VideoJsPlayer = ReturnType<typeof videojs>;
 
 export interface SubtitleTrack {
+    serverRendered?: boolean;
     src: string;
     srclang: string;
     label: string;
@@ -148,7 +149,7 @@ const VideoPlayer = ({
                 let addedCount = 0;
                 subtitles.forEach((subtitle, index) => {
                     // ASS/SSA tracks are rendered by JASSUB instead of the native text track
-                    if (subtitle.format === 'ass') return;
+                    if (subtitle.format === 'ass' || subtitle.serverRendered) return;
 
                     player.addRemoteTextTrack(
                         {

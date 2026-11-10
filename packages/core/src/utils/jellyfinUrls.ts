@@ -313,7 +313,7 @@ export function getPlaybackStreamUrl(
     const container = options.container?.toLowerCase();
     const mimeType = container ? BROWSER_PLAYABLE_CONTAINERS[container] : undefined;
 
-    if ((playMethod === 'DirectPlay' || playMethod === 'DirectStream') && mimeType) {
+    if (playMethod === 'DirectPlay' && mimeType) {
         return {
             url: getDirectStreamUrl(itemId, {
                 mediaSourceId: options.mediaSourceId,
@@ -325,7 +325,13 @@ export function getPlaybackStreamUrl(
         };
     }
 
-    if (playMethod === 'Transcode' && options.transcodingUrl && creds) {
+    // DirectStream also uses the server-provided HLS URL: it can remux the
+    // container or convert audio while copying the original video stream.
+    if (
+        (playMethod === 'Transcode' || playMethod === 'DirectStream') &&
+        options.transcodingUrl &&
+        creds
+    ) {
         const base = creds.server.replace(/\/+$/, '');
         const path = options.transcodingUrl.startsWith('/')
             ? options.transcodingUrl
