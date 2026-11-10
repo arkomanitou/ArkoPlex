@@ -1,8 +1,9 @@
 # ArkoPlex
 
 Client Jellyfin web indépendant, basé sur **Pelagica 4.15.0**. ArkoPlex est un
-prototype : **bêta en préparation**, pas encore une version stable ou validée pour
-une exposition publique. Le périmètre maintenu ici est le frontend web React et
+**bêta 1 de référence**, validée pour les parcours décrits ci-dessous sur une
+installation locale. La validation HTTPS derrière un proxy et les essais prolongés
+restent à terminer avant de qualifier un accès extérieur. Le périmètre maintenu ici est le frontend web React et
 le backend Go ; les applications desktop et TV héritées restent hors périmètre.
 
 ## Origine et licence
@@ -17,34 +18,33 @@ Merci aux contributeurs Pelagica et aux projets React, Jellyfin et Wails.
 ArkoPlex n'est pas affilié au projet Jellyfin. Les illustrations de médias
 appartiennent à leurs ayants droit ; ce client ne fournit aucun contenu.
 
-## État des versions
+## Bêta 1 de référence
 
-État de référence au 10 novembre 2026 ; les branches peuvent évoluer.
+La branche `arkoplex/beta-1` regroupe la direction Night Pulse, les protections
+backend, l’intégration Jellyseerr, les découvertes personnalisées et les correctifs
+récents du lecteur. Voir [la fiche bêta 1](docs/BETA-1.md).
 
-| Référence | État |
-| --- | --- |
-| `main`, `arkoplex/jalon-2-night-pulse` | Jalon 2, référence GitHub `f648a693670846345c7b5ab304ea15ea47ba5722` |
-| `arkoplex:jalon2-night-pulse` | Tag local signalé comme installé ; aucune image publique ArkoPlex annoncée |
-| `arkoplex/hero-auto-rotation` | Rotation intégrée à la bêta locale issue de `7b11003` |
-| `arkoplex/beta-preparation` | Documentation et CI intégrées à la bêta locale |
-| `arkoplex/security-hardening` | Premier lot de protections intégré à la bêta locale |
-| `arkoplex/seerr-https-docker` | Bêta `7b11003` installée séparément, premiers essais utilisateur concluants |
-| `arkoplex/discovery-personalized` | Jalon 3 : onglet À découvrir, personnalisation et suivi ; candidat non déployé |
+La référence applicative installée et vérifiée le 10 novembre 2026 est
+`655ebc5506e552446a28c8b31797ce13cc732095`. La consolidation ajoute de la
+documentation et étend les contrôles Docker à la branche principale ; elle ne
+modifie pas ce code applicatif. Les branches de développement et leur historique
+sont conservés.
 
-Le [jalon 3 — À découvrir](docs/DISCOVERY.md) décrit le parcours de demande,
-la personnalisation par compte et les vérifications avant installation.
+Fonctionnalités de cette référence :
 
-« Le choix du soir » comprend déjà une rotation à huit secondes, des points
-cliquables, pause/reprise et suspension au survol, au focus et lorsque l'onglet
-est masqué, avec respect des préférences de mouvement. Voir
-[la note de rotation](docs/HERO-ROTATION.md). Les tests de temporisation et HTML
-SSR ne constituent pas des tests d'interactions dans un navigateur.
+- « Le choix du soir » : rotation à huit secondes, points, pause et cadre stable
+  entre les titres ; respect des préférences de mouvement.
+- Onglet « À découvrir » séparé de l’accueil, suggestions par compte, recherche,
+  demandes de films/saisons et suivi Jellyseerr.
+- Négociation du flux avec la source vidéo exacte et choix explicite des
+  sous-titres ; utilisation du flux HLS adapté fourni par Jellyfin.
+- Arrêt de la conversion ciblé sur l’appareil et la lecture quittée, avec reprise
+  du même titre dans une nouvelle session.
 
-Des essais préliminaires rapportés par l'utilisateur couvrent lecture, saut
-d'introduction, épisodes suivant/précédent et reprise de progression. Ils ne
-constituent pas une validation exhaustive des appareils, codecs ou permissions.
-Voir aussi [Jalon 0](docs/JALON-0.md) et [Jalon 2](docs/JALON-2.md) pour les
-résultats historiques, distincts des futurs résultats CI.
+Les retours des deux comptes, les demandes jusqu’à disponibilité dans Jellyfin,
+le mobile et les derniers essais de lecture sont concluants. Les contrôles
+reproductibles sont détaillés ci-dessous ; ils ne remplacent pas des essais
+prolongés avec les différents codecs et appareils.
 
 ## Construire et vérifier dans un environnement isolé
 
@@ -54,7 +54,7 @@ Installer ces versions avant les commandes ; aucune mise à jour de lockfile
 n'est nécessaire. Depuis un nouveau répertoire :
 
 ```sh
-git clone --branch arkoplex/seerr-https-docker https://github.com/arkomanitou/ArkoPlex.git
+git clone --branch arkoplex/beta-1 https://github.com/arkomanitou/ArkoPlex.git
 cd ArkoPlex
 npm install --global pnpm@11.25.0
 bash scripts/baseline-build.sh
@@ -75,8 +75,9 @@ node --test scripts/check-hero-rotation.mjs
 
 `check-frontend.mjs` rend du HTML SSR avec des identifiants fictifs : aucune
 connexion Jellyfin. Les tests de rotation utilisent une horloge simulée.
-La CI ne lance pas de service, n'accède pas à une installation réelle et ne
-publie rien. Les anciens workflows sont conservés dans
+La CI utilise aussi un navigateur avec des réponses simulées et des conteneurs
+Docker isolés avec de faux services Jellyfin/Seerr. Elle n’accède pas au homelab
+et ne publie pas d’image. Les anciens workflows sont conservés dans
 `.github/workflows-archive/` où GitHub ne les exécute pas. Ne pas les réactiver
 sans revue : ils ciblent les publications Pelagica et des secrets amont.
 Aucun réglage global GitHub Actions ni secret n'est requis par ce lot.
@@ -106,11 +107,21 @@ Les requêtes ne choisissent plus librement le serveur Jellyfin à contacter.
 Le [lot Seerr et Docker](docs/SEERR-HTTPS-DOCKER.md) décrit
 `ARKOPLEX_PUBLIC_ORIGIN`, le préfixe de construction, les cookies/CSRF et les
 contrôles du conteneur. Une exposition HTTPS derrière proxy exige cette origine
-explicite ; aucun proxy ni DNS existant n’est modifié par le code.
+explicite ; [la fiche reverse proxy](docs/REVERSE-PROXY.md) précise la préparation
+et les contrôles. Aucun proxy ni DNS existant n’est modifié par le code.
 
-## Mise à jour et sauvegarde : procédure à exécuter ultérieurement
+## Mise à jour, sauvegarde et retour arrière
 
-Aucune commande de cette section n'a été exécutée sur une installation réelle.
+Un point de restauration local de la référence applicative `655ebc5` a été
+vérifié le 10 novembre 2026 : archive et empreinte, restauration dans un volume
+neuf, comparaison des fichiers/permissions/propriétaires et démarrage isolé de
+la copie restaurée. L’instance a été relancée après la copie. Les archives,
+configurations et manifestes propres à l’installation restent privés.
+
+Ce point local ne constitue pas une sauvegarde hors machine. Le dépôt cloud et
+une politique de rétention doivent être configurés séparément. Les commandes
+ci-dessous sont une procédure générique à adapter, pas un script déjà exécuté
+mot pour mot sur chaque installation.
 Avant toute mise à jour, relever le commit source, le tag **et l'ID exact** de
 l'image courante, le fichier de stack/Compose et le nom réel du volume monté
 sur `/config`. Conserver l'ancienne image. Ne jamais utiliser `down -v`,
