@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"pelagica-backend/upstream"
+	"pelagica-backend/websecurity"
 	"strings"
 	"time"
 
@@ -78,26 +79,34 @@ func SeerLogin(c fiber.Ctx) error {
 		return c.Status(resp.StatusCode).Type("json").Send(body)
 	}
 
-	setSeerSessionCookie(c, resp)
+	if err := setSeerSessionCookie(c, resp); err != nil {
+		return c.Status(503).JSON(models.APIError{Error: "Invalid browser security configuration"})
+	}
 
 	return c.Status(fiber.StatusOK).Type("json").Send(body)
 }
 
-func setSeerSessionCookie(c fiber.Ctx, resp *http.Response) {
+func setSeerSessionCookie(c fiber.Ctx, resp *http.Response) error {
+	policy, err := websecurity.FromEnv()
+	if err != nil {
+		return err
+	}
 	for _, cookie := range resp.Cookies() {
 		if cookie.Name != "connect.sid" {
 			continue
 		}
-		c.Cookie(&fiber.Cookie{
-			Name:     seerSessionCookieName,
-			Value:    cookie.Value,
-			Path:     "/api/seerr",
-			HTTPOnly: true,
-			SameSite: "Lax",
-			Expires:  cookie.Expires,
+		if policy.BasePath != "" {
+			expireSeerCookie(c, "/api/seerr", policy.SecureCookie(c.RequestCtx().IsTLS()))
+		}
+		appendSeerCookie(c, &http.Cookie{
+			Name: seerSessionCookieName, Value: cookie.Value,
+			Path: policy.SeerrCookiePath(), HttpOnly: true, SameSite: http.SameSiteLaxMode,
+			Secure:  policy.SecureCookie(c.RequestCtx().IsTLS()),
+			Expires: cookie.Expires, MaxAge: cookie.MaxAge,
 		})
-		return
+		return nil
 	}
+	return nil
 }
 
 func SeerQuickConnectInitiate(c fiber.Ctx) error {
@@ -159,7 +168,9 @@ func SeerQuickConnectAuthenticate(c fiber.Ctx) error {
 		return c.Status(resp.StatusCode).Type("json").Send(body)
 	}
 
-	setSeerSessionCookie(c, resp)
+	if err := setSeerSessionCookie(c, resp); err != nil {
+		return c.Status(503).JSON(models.APIError{Error: "Invalid browser security configuration"})
+	}
 
 	return c.Status(fiber.StatusOK).Type("json").Send(body)
 }
@@ -189,21 +200,32 @@ func GetSeerQuickConnectSupported(c fiber.Ctx) error {
 	return c.JSON(seerQuickConnectSupportedResponse{Supported: resp.StatusCode == http.StatusBadRequest})
 }
 
-func clearSeerSessionCookie(c fiber.Ctx) {
-	c.Cookie(&fiber.Cookie{
-		Name:     seerSessionCookieName,
-		Value:    "",
-		Path:     "/api/seerr",
-		HTTPOnly: true,
-		SameSite: "Lax",
-		Expires:  time.Unix(0, 0),
+func expireSeerCookie(c fiber.Ctx, path string, secure bool) {
+	appendSeerCookie(c, &http.Cookie{
+		Name: seerSessionCookieName, Value: "", Path: path,
+		HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: secure,
+		Expires: time.Unix(0, 0), MaxAge: -1,
 	})
+}
+
+func clearSeerSessionCookie(c fiber.Ctx) error {
+	policy, err := websecurity.FromEnv()
+	if err != nil {
+		return err
+	}
+	expireSeerCookie(c, policy.SeerrCookiePath(), policy.SecureCookie(c.RequestCtx().IsTLS()))
+	if policy.BasePath != "" {
+		expireSeerCookie(c, "/api/seerr", policy.SecureCookie(c.RequestCtx().IsTLS()))
+	}
+	return nil
 }
 
 func SeerLogout(c fiber.Ctx) error {
 	session := c.Cookies(seerSessionCookieName)
 
-	clearSeerSessionCookie(c)
+	if err := clearSeerSessionCookie(c); err != nil {
+		return c.Status(503).JSON(models.APIError{Error: "Invalid browser security configuration"})
+	}
 
 	if session == "" {
 		return c.SendStatus(fiber.StatusNoContent)
@@ -378,7 +400,9 @@ func GetSeerrStatus(c fiber.Ctx) error {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		clearSeerSessionCookie(c)
+		if err := clearSeerSessionCookie(c); err != nil {
+			return c.Status(503).JSON(models.APIError{Error: "Invalid browser security configuration"})
+		}
 		return c.JSON(seerrStatusResponse{LoggedIn: false})
 	}
 
@@ -400,4 +424,10 @@ func seerGet(c fiber.Ctx, target string) (*http.Response, error) {
 		return nil, err
 	}
 	return seerHTTPClient.Do(req)
+}
+
+// Add emits separate Set-Cookie fields for the current and legacy paths.
+// Fiber's Cookie helper replaces by name, which would lose one of the paths.
+func appendSeerCookie(c fiber.Ctx, cookie *http.Cookie) {
+	c.Response().Header.Add("Set-Cookie", cookie.String())
 }

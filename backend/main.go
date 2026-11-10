@@ -2,12 +2,14 @@ package main
 
 import (
 	"log/slog"
+	"net"
 	"os"
 	"pelagica-backend/appconfig"
 	"pelagica-backend/collector"
 	"pelagica-backend/handlers"
 	"pelagica-backend/logging"
 	"pelagica-backend/services"
+	"pelagica-backend/websecurity"
 
 	"github.com/gofiber/fiber/v3"
 )
@@ -17,11 +19,15 @@ func getPort() string {
 	if port == "" {
 		port = "4321"
 	}
-	return ":" + port
+	return net.JoinHostPort(os.Getenv("HOST"), port)
 }
 
 func main() {
 	logging.Setup()
+	if _, err := websecurity.FromEnv(); err != nil {
+		slog.Error("Invalid browser security configuration", "error", err)
+		os.Exit(1)
+	}
 
 	app := fiber.New()
 	appconfig.Setup(app)
@@ -74,6 +80,8 @@ func registerRoutes(app *fiber.App) {
 
 	api.Get("/stats-consent", handlers.GetStatsConsent)
 	api.Post("/stats-consent", handlers.AuthMiddleware, handlers.PostStatsConsent)
+
+	api.Use("/seerr", handlers.SeerrSecurity)
 
 	api.Post("/seerr/login", handlers.SeerLogin)
 	api.Post("/seerr/logout", handlers.SeerLogout)

@@ -10,7 +10,7 @@ export async function loginToSeerr(
         withBasePath('/api/seerr/login?jellyfin_url=' + encodeURIComponent(server)),
         {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'X-ArkoPlex-Request': '1' },
             credentials: 'include',
             body: JSON.stringify({ username, password }),
         }

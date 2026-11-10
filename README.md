@@ -28,6 +28,7 @@ appartiennent à leurs ayants droit ; ce client ne fournit aucun contenu.
 | `arkoplex/hero-auto-rotation` | `464111760aec4e145ab251684f0ea1c751592079`, rotation préparée, non déployée |
 | `arkoplex/beta-preparation` | Documentation et CI préparées à partir de la branche de rotation ; aucun déploiement |
 | `arkoplex/security-hardening` | Premier lot de protections backend, basé sur la préparation bêta ; non déployé |
+| `arkoplex/seerr-https-docker` | Cookies/CSRF Seerr et contrôles Docker isolés ; non déployé |
 
 « Le choix du soir » comprend déjà une rotation à huit secondes, des points
 cliquables, pause/reprise et suspension au survol, au focus et lorsque l'onglet
@@ -49,7 +50,7 @@ Installer ces versions avant les commandes ; aucune mise à jour de lockfile
 n'est nécessaire. Depuis un nouveau répertoire :
 
 ```sh
-git clone --branch arkoplex/security-hardening https://github.com/arkomanitou/ArkoPlex.git
+git clone --branch arkoplex/seerr-https-docker https://github.com/arkomanitou/ArkoPlex.git
 cd ArkoPlex
 npm install --global pnpm@11.25.0
 bash scripts/baseline-build.sh
@@ -97,6 +98,11 @@ conteneur et les dépendances nécessitent un suivi séparé.
 Le [premier lot de durcissement](docs/SECURITY-HARDENING.md) décrit les bornes,
 les changements de compatibilité des URLs et les validations restantes.
 Les requêtes ne choisissent plus librement le serveur Jellyfin à contacter.
+
+Le [lot Seerr et Docker](docs/SEERR-HTTPS-DOCKER.md) décrit
+`ARKOPLEX_PUBLIC_ORIGIN`, le préfixe de construction, les cookies/CSRF et les
+contrôles du conteneur. Une exposition HTTPS derrière proxy exige cette origine
+explicite ; aucun proxy ni DNS existant n’est modifié par le code.
 
 ## Mise à jour et sauvegarde : procédure à exécuter ultérieurement
 
