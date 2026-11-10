@@ -5,6 +5,8 @@ Only names created by this invocation are cleaned up. No persistent volumes,
 no external services, no image push, no deployment and no Docker pruning.
 """
 import argparse
+import base64
+import email.message
 import http.cookies
 import json
 from pathlib import Path
@@ -17,6 +19,7 @@ import uuid
 
 ROOT = Path(__file__).resolve().parent.parent
 ORIGIN = 'https://demo.example.invalid'
+PROBE_CONTAINER = ''
 
 
 def docker(*args, check=True):
@@ -28,18 +31,36 @@ def inspect(name):
     return json.loads(docker('inspect', name).stdout)[0]
 
 
-def port(name, container_port):
-    return inspect(name)['NetworkSettings']['Ports'][str(container_port) + '/tcp'][0]['HostPort']
+PROBE_SCRIPT = r'''
+import base64, json, sys, urllib.request, urllib.error
+url, method, headers, body, has_body = sys.argv[1:]
+req = urllib.request.Request(url, method=method, headers=json.loads(headers),
+    data=base64.b64decode(body) if has_body == '1' else None)
+try:
+    response = urllib.request.urlopen(req, timeout=5)
+except urllib.error.HTTPError as error:
+    response = error
+with response:
+    print(json.dumps({'status': response.status,
+        'body': base64.b64encode(response.read()).decode(),
+        'headers': list(response.headers.items())}))
+'''
 
 
 def request(url, *, data=None, headers=None, method='GET'):
-    req = urllib.request.Request(url, data=data, headers=headers or {}, method=method)
-    try:
-        response = urllib.request.urlopen(req, timeout=5)
-    except urllib.error.HTTPError as error:
-        response = error
-    with response:
-        return response.status, response.read(), response.headers
+    # Probe from inside the internal network; no host ports or Docker socket
+    # need to be exposed to any test container.
+    result = docker('exec', PROBE_CONTAINER, 'python', '-c', PROBE_SCRIPT,
+                    url, method, json.dumps(headers or {}),
+                    base64.b64encode(data or b'').decode(),
+                    '1' if data is not None else '0', check=False)
+    if result.returncode:
+        raise OSError(result.stderr)
+    payload = json.loads(result.stdout)
+    response_headers = email.message.Message()
+    for key, value in payload['headers']:
+        response_headers[key] = value
+    return payload['status'], base64.b64decode(payload['body']), response_headers
 
 
 def ready(url, name):
@@ -67,6 +88,7 @@ def session_cookies(headers):
 
 
 def main():
+    global PROBE_CONTAINER
     parser = argparse.ArgumentParser()
     parser.add_argument('--image', required=True)
     parser.add_argument('--base-path', default='')
@@ -97,17 +119,18 @@ def main():
             docker('run', '-d', '--name', fixture, '--label', 'arkoplex.ci=' + label,
                    '--network', network, '--network-alias', 'fixture',
                    '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges',
-                   '-p', '127.0.0.1::8080', '--mount',
+                   '--mount',
                    'type=bind,src=' + str(ROOT / 'scripts/docker-fixture.py') + ',dst=/fixture.py,readonly',
                    'python:3.13-alpine', 'python', '-B', '/fixture.py')
             containers.append(fixture)
-            fixture_url = 'http://127.0.0.1:' + port(fixture, 8080)
+            PROBE_CONTAINER = fixture
+            fixture_url = 'http://fixture:8080'
             ready(fixture_url + '/calls', fixture)
 
             def start_app(suffix, origin):
                 name = label + '-' + suffix
                 args = ['run', '-d', '--name', name, '--label', 'arkoplex.ci=' + label,
-                        '--network', network, '-p', '127.0.0.1::80', '--tmpfs', '/config:rw,size=64m',
+                        '--network', network, '--tmpfs', '/config:rw,size=64m',
                         '--mount', 'type=bind,src=' + str(config) + ',dst=/tmp/fixture-config.json,readonly',
                         '-e', 'ARKOPLEX_CONFIG_PATH=/tmp/fixture-config.json',
                         '-e', 'SERVER_ADDRESS=http://fixture:8080/jellyfin',
@@ -116,11 +139,12 @@ def main():
                         '-e', 'ARKOPLEX_PUBLIC_ORIGIN=' + origin, options.image]
                 docker(*args)
                 containers.append(name)
-                url = 'http://127.0.0.1:' + port(name, 80)
+                url = 'http://' + name + ':80'
                 ready(url + '/health', name)
                 return name, url
 
             app, url = start_app('https', ORIGIN)
+            check('Internal test network publishes no host ports', not inspect(app)['HostConfig'].get('PortBindings') and not inspect(fixture)['HostConfig'].get('PortBindings'))
             status, body, headers = request(url + base + '/login')
             check('Production SPA serves login under configured prefix', status == 200 and b'id="root"' in body)
             for path in [base + '/login', base + '/api/health', base + '/missing.js', base + '/api/missing.css']:
@@ -188,7 +212,7 @@ def main():
             # The image must also preserve local HTTP behavior without trusting proxy headers.
             http_app, http_url = start_app('http', '')
             status, _, headers = request(http_url + base + '/api/seerr/login', method='POST', data=payload,
-                                         headers=good_headers | {'Origin': http_url, 'X-Forwarded-Proto': 'https'})
+                                         headers=good_headers | {'Origin': 'http://localhost:8800', 'Host': 'localhost:8800', 'X-Forwarded-Proto': 'https'})
             cookie = session_cookies(headers).get(cookie_path)
             check('Local HTTP login retains port and ignores forwarded HTTPS', status == 200 and cookie is not None and not cookie['secure'])
             # Exercise lifecycle only on containers created by this test.

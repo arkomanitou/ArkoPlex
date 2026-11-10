@@ -86,7 +86,9 @@ python3 scripts/check-docker.py --image arkoplex-ci:prefix --base-path /arkoplex
 ```
 
 Le script crée un réseau Docker interne et des conteneurs à noms aléatoires,
-avec ports publiés uniquement sur loopback. Jellyfin/Seerr sont simulés ; la
+sans aucun port publié. Les requêtes HTTP partent de la fixture via
+`docker exec`, sans socket Docker monté dans les conteneurs. Jellyfin/Seerr
+sont simulés ; la
 mise à jour de base studios est remplacée par une réponse locale. L'état de
 l'application est en tmpfs et la configuration de fixture est temporaire.
 Aucun volume persistant n'est créé, aucun `prune` n'est utilisé. Le nettoyage
