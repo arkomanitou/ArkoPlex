@@ -20,6 +20,7 @@ const negotiations = [];
 const stoppedSessions = [];
 let session = 0;
 let browser;
+let page;
 
 const streams = (second) => [
     { Type: 'Video', Index: 0, Codec: 'vp8', Width: 160, Height: 90 },
@@ -39,7 +40,12 @@ try {
     }
     browser = await chromium.launch({ headless: true });
     const context = await browser.newContext({ viewport: { width: 1000, height: 600 }, hasTouch: true, reducedMotion: 'reduce' });
+    context.setDefaultTimeout(15000);
     await context.addInitScript(() => {
+        window.playerTestEvents = [];
+        for (const type of ['pointerdown', 'pointerup', 'pointercancel', 'lostpointercapture', 'click']) {
+            document.addEventListener(type, event => window.playerTestEvents.push({ type, pointer: event.pointerType, target: event.target?.getAttribute?.('data-testid') }), true);
+        }
         localStorage.setItem('jf_server', 'https://jellyfin.invalid');
         if (!localStorage.getItem('jf_user')) localStorage.setItem('jf_user', 'alice');
         localStorage.setItem('jf_token', 'fixture-token');
@@ -77,7 +83,7 @@ try {
         if (url.pathname.startsWith('/api/')) return json({});
         return route.continue();
     });
-    const page = await context.newPage();
+    page = await context.newPage();
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(origin);
     await page.locator('.arko-primary-action').first().click();
@@ -86,6 +92,7 @@ try {
     await page.waitForFunction(() => document.querySelector('video')?.readyState >= 2);
     check('Le bouton Lire entre réellement en plein écran', await page.evaluate(() => document.fullscreenElement === document.documentElement));
     await video.evaluate(v => { v.pause(); v.currentTime = 30; v.volume = 0.4; });
+    await page.waitForFunction(() => !document.querySelector('video').seeking);
     const surface = page.getByTestId('player-gesture-surface');
     const bounds = await surface.boundingBox();
     const xLeft = bounds.x + bounds.width * 0.25;
@@ -150,6 +157,10 @@ try {
     check('Aucune erreur JavaScript', errors.length === 0);
     check('Aucun accès hors des fixtures', escapedCalls.length === 0);
 } catch (error) {
+    console.error(await page?.evaluate(() => {
+        const video = document.querySelector('video');
+        return { media: video && { time: video.currentTime, duration: video.duration, paused: video.paused, seekable: video.seekable.length ? video.seekable.end(0) : null }, feedback: document.querySelector('[data-testid="player-gesture-feedback"]')?.textContent, events: window.playerTestEvents?.slice(-14) };
+    }).catch(() => null));
     console.error({ errors, escapedCalls, negotiations });
     throw error;
 } finally {
