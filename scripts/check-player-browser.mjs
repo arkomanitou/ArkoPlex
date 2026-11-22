@@ -476,6 +476,9 @@ try {
         return {
           media: video && {
             time: video.currentTime,
+            volume: video.volume,
+            muted: video.muted,
+            brightness: video.style.filter,
             duration: video.duration,
             paused: video.paused,
             seekable: video.seekable.length ? video.seekable.end(0) : null,
@@ -484,6 +487,11 @@ try {
             '[data-testid="player-gesture-feedback"]',
           )?.textContent,
           events: window.playerTestEvents?.slice(-14),
+          preferences: Object.fromEntries(
+            Object.entries(localStorage).filter(([key]) =>
+              key.startsWith("arko-player"),
+            ),
+          ),
         };
       })
       .catch(() => null),
