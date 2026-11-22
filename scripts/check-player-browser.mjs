@@ -385,6 +385,17 @@ try {
       () => document.fullscreenElement === document.documentElement,
     ),
   );
+  await page.waitForFunction(
+    (expected) => {
+      const v = document.querySelector("video");
+      return (
+        v &&
+        Math.abs(v.volume - expected.volume) < 0.01 &&
+        v.style.filter === expected.brightness
+      );
+    },
+    { volume, brightness },
+  );
   check(
     "Volume et luminosité suivent le nouvel épisode",
     await video.evaluate(
