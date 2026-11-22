@@ -74,14 +74,13 @@ const PlayerPage = () => {
         }
 
         const audioStreams = item.MediaStreams?.filter((s) => s.Type === 'Audio') ?? [];
-        const lastAudio = getLastAudioLanguage(item.Id!);
-        if (lastAudio !== null && audioStreams.some((s) => s.Index === lastAudio)) {
-            return { index: lastAudio, matchedPreferred: false };
-        }
-
         const remembered = matchPreferredTrack(audioStreams, readPlayerPreferences().audio);
         if (remembered?.Index != null) {
             return { index: remembered.Index, matchedPreferred: false };
+        }
+        const lastAudio = getLastAudioLanguage(item.Id!);
+        if (lastAudio !== null && audioStreams.some((s) => s.Index === lastAudio)) {
+            return { index: lastAudio, matchedPreferred: false };
         }
 
         const preferred = userConfiguration.AudioLanguagePreference;
@@ -104,10 +103,10 @@ const PlayerPage = () => {
         const subtitles = item.MediaStreams?.filter((s) => s.Type === 'Subtitle') ?? [];
         const remembered = readPlayerPreferences().subtitle;
         if (remembered === 'off') return null;
-        const lastSubtitle = getLastSubtitleLanguage(item.Id!);
-        if (lastSubtitle !== null && subtitles[lastSubtitle]) return lastSubtitle;
         const match = matchPreferredTrack(subtitles, remembered);
         if (match) return subtitles.indexOf(match);
+        const lastSubtitle = getLastSubtitleLanguage(item.Id!);
+        if (lastSubtitle !== null && subtitles[lastSubtitle]) return lastSubtitle;
 
         const preferred = userConfiguration.SubtitleLanguagePreference;
         if (!preferred) return null;
