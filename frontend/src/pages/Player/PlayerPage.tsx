@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useReportPlaybackProgress } from '@pelagica/core';
 import { usePlaybackStart } from '@pelagica/core';
 import { usePlaybackStop } from '@pelagica/core';
@@ -27,6 +26,17 @@ import { getLastAudioLanguage, getLastSubtitleLanguage } from '@/utils/localstor
 import { useUserConfiguration } from '@pelagica/core';
 import { usePlayerItem } from '@pelagica/core';
 import { useMusicPlayback } from '@/hooks/useMusicPlayback';
+import {
+    describeTrack,
+    matchPreferredTrack,
+    readPlayerPreferences,
+    savePlayerPreferences,
+} from '@/utils/playerPreferences';
+import {
+    enterPlayerFullscreen,
+    exitPlayerFullscreen,
+    playerIsFullscreen,
+} from '@/utils/playerFullscreen';
 import { clearCodecCache } from '@pelagica/core';
 import {
     hideTrafficLights,
@@ -63,32 +73,41 @@ const PlayerPage = () => {
             return { index: 1, matchedPreferred: false };
         }
 
+        const audioStreams = item.MediaStreams?.filter((s) => s.Type === 'Audio') ?? [];
         const lastAudio = getLastAudioLanguage(item.Id!);
-        if (lastAudio !== null) {
+        if (lastAudio !== null && audioStreams.some((s) => s.Index === lastAudio)) {
             return { index: lastAudio, matchedPreferred: false };
+        }
+
+        const remembered = matchPreferredTrack(audioStreams, readPlayerPreferences().audio);
+        if (remembered?.Index != null) {
+            return { index: remembered.Index, matchedPreferred: false };
         }
 
         const preferred = userConfiguration.AudioLanguagePreference;
         if (!preferred) {
-            return { index: 1, matchedPreferred: false };
+            return { index: audioStreams[0]?.Index ?? 1, matchedPreferred: false };
         }
 
-        const audioStreams = item.MediaStreams?.filter((s) => s.Type === 'Audio');
-
-        const match = audioStreams?.find((s) => s.Language === preferred);
+        const match = audioStreams.find((s) => s.Language === preferred);
 
         if (match?.Index != null) {
             return { index: match.Index, matchedPreferred: true };
         }
 
-        return { index: 1, matchedPreferred: false };
+        return { index: audioStreams[0]?.Index ?? 1, matchedPreferred: false };
     }, [item, userConfiguration]);
 
     const resolvedSubtitleTrackIndex = useMemo(() => {
         if (!item || !userConfiguration) return null;
 
+        const subtitles = item.MediaStreams?.filter((s) => s.Type === 'Subtitle') ?? [];
+        const remembered = readPlayerPreferences().subtitle;
+        if (remembered === 'off') return null;
         const lastSubtitle = getLastSubtitleLanguage(item.Id!);
-        if (lastSubtitle !== null) return lastSubtitle;
+        if (lastSubtitle !== null && subtitles[lastSubtitle]) return lastSubtitle;
+        const match = matchPreferredTrack(subtitles, remembered);
+        if (match) return subtitles.indexOf(match);
 
         const preferred = userConfiguration.SubtitleLanguagePreference;
         if (!preferred) return null;
@@ -158,12 +177,15 @@ const PlayerPage = () => {
 
     useEffect(() => {
         const handleFullscreenChange = () => {
-            setIsFullscreen(!!document.fullscreenElement);
+            setIsFullscreen(playerIsFullscreen());
         };
 
         document.addEventListener('fullscreenchange', handleFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+        handleFullscreenChange();
         return () => {
             document.removeEventListener('fullscreenchange', handleFullscreenChange);
+            document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
         };
     }, []);
 
@@ -200,8 +222,8 @@ const PlayerPage = () => {
         if (resolvedSubtitleTrackIndex === null) return;
         if (hasUserSelectedSubtitleRef.current) return;
 
-        // Don't enable subtitles if the audio matched preferred language
-        if (resolvedAudio.matchedPreferred) return;
+        // An explicit subtitle choice takes precedence over Jellyfin's automatic language rule.
+        if (resolvedAudio.matchedPreferred && !readPlayerPreferences().subtitle) return;
 
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setSubtitleTrackIndex(resolvedSubtitleTrackIndex);
@@ -229,18 +251,10 @@ const PlayerPage = () => {
             return;
         }
 
-        if (document.fullscreenElement) {
-            document.exitFullscreen();
+        if (playerIsFullscreen()) {
+            exitPlayerFullscreen();
         } else {
-            if (containerRef.current.requestFullscreen) {
-                containerRef.current.requestFullscreen();
-            } else if ((containerRef.current as any).webkitRequestFullscreen) {
-                (containerRef.current as any).webkitRequestFullscreen();
-            } else if ((containerRef.current as any).mozRequestFullScreen) {
-                (containerRef.current as any).mozRequestFullScreen();
-            } else if ((containerRef.current as any).msRequestFullscreen) {
-                (containerRef.current as any).msRequestFullscreen();
-            }
+            enterPlayerFullscreen();
         }
     };
 
@@ -331,12 +345,17 @@ const PlayerPage = () => {
     );
 
     const handleAudioTrackChange = (index: number) => {
+        const track = item?.MediaStreams?.find((s) => s.Type === 'Audio' && s.Index === index);
+        if (track) savePlayerPreferences({ audio: describeTrack(track) });
         pendingAudioSwitchSeekRef.current = player?.currentTime() || null;
         hasUserSelectedAudioRef.current = true;
         setAudioTrackIndex(index);
     };
 
     const handleSubtitleTrackChange = (index: number | null) => {
+        const track = item?.MediaStreams?.filter((s) => s.Type === 'Subtitle')[index ?? -1];
+        if (index === null) savePlayerPreferences({ subtitle: 'off' });
+        else if (track) savePlayerPreferences({ subtitle: describeTrack(track) });
         if (getServerSubtitleIndex(item?.MediaStreams ?? [], index) !== serverSubtitleIndex) {
             pendingAudioSwitchSeekRef.current = player?.currentTime() ?? 0;
         }

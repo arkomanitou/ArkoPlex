@@ -11,6 +11,7 @@ import { memo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { buildPlayerUrl } from '@/utils/playerUrl';
+import { enterPlayerFullscreen } from '@/utils/playerFullscreen';
 import GeneralItemContextMenu from '../../components/GeneraItemContextMenu';
 
 const EpisodeComponent = memo(
@@ -75,6 +76,7 @@ const EpisodeComponent = memo(
                                         role="button"
                                         onClick={(e) => {
                                             e.preventDefault();
+                                            enterPlayerFullscreen();
                                             navigate(buildPlayerUrl(episode.Id!, backUrl));
                                         }}
                                     >

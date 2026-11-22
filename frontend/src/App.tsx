@@ -15,6 +15,7 @@ import { DesktopDragRegion } from './components/DesktopDragRegion.tsx';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from './components/theme-provider.tsx';
 import { BASE_PATH } from '@pelagica/core';
+import { PlayerFullscreen } from './components/PlayerFullscreen';
 
 const DiscoverPage = lazy(() => import('./pages/Discover/DiscoverPage.tsx'));
 const HomePage = lazy(() => import('./pages/Home/HomePage.tsx'));
@@ -51,6 +52,7 @@ export default function App() {
                             <AdminItemDialogsProvider>
                                 <SeerrItemDialogProvider>
                                     <ScrollToTop />
+                                    <PlayerFullscreen />
                                     <DesktopDragRegion />
                                     <KeyboardShortcuts />
                                     <SearchCommand />

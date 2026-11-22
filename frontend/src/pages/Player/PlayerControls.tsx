@@ -50,6 +50,8 @@ import {
 } from '@/utils/localstorageLastlanguage';
 import { useConfig } from '@pelagica/core';
 import { cn } from '../../lib/utils';
+import PlayerGestureSurface from './PlayerGestureSurface';
+import { readPlayerPreferences, savePlayerPreferences } from '@/utils/playerPreferences';
 
 function getPrimaryTrickplayInfo(trickplay?: BaseItemDto['Trickplay']) {
     if (!trickplay) return null;
@@ -131,11 +133,9 @@ const PlayerControls = ({
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const [bufferedTime, setBufferedTime] = useState(0);
-    const [volume, setVolume] = useState(() => {
-        const saved = localStorage.getItem('playerVolume');
-        return saved ? parseFloat(saved) : 1;
-    });
-    const [isMuted, setIsMuted] = useState(false);
+    const [volume, setVolume] = useState(() => readPlayerPreferences().volume);
+    const [isMuted, setIsMuted] = useState(() => readPlayerPreferences().muted);
+    const [brightness, setBrightness] = useState(() => readPlayerPreferences().brightness);
     const [hoverTime, setHoverTime] = useState<number | null>(null);
     const [hoverPosition, setHoverPosition] = useState<number>(0);
     const [showControls, setShowControls] = useState(true);
@@ -161,6 +161,19 @@ const PlayerControls = ({
             navigate(-1);
         }
     };
+
+    useEffect(() => {
+        if (!player || player.isDisposed?.()) return;
+        const preferences = readPlayerPreferences();
+        player.volume(preferences.volume);
+        player.muted(preferences.muted);
+    }, [player]);
+
+    useEffect(() => {
+        const video = player?.el()?.querySelector('video');
+        if (video) video.style.filter = `brightness(${brightness})`;
+        savePlayerPreferences({ brightness });
+    }, [player, brightness]);
 
     useEffect(() => {
         setContainer(containerRef.current);
@@ -217,18 +230,18 @@ const PlayerControls = ({
     }, []);
 
     useEffect(() => {
-        localStorage.setItem('playerVolume', volume.toString());
-    }, [volume]);
-
-    useEffect(() => {
         if (!player || player.isDisposed?.()) return;
-
-        player.volume(volume);
 
         const updatePlayState = () => setIsPlaying(!player.paused());
         const updateTime = () => setCurrentTime(player.currentTime() || 0);
         const updateDuration = () => setDuration(player.duration() || 0);
-        const updateMuted = () => setIsMuted(player.muted() || false);
+        const updateVolume = () => {
+            const currentVolume = player.volume() ?? 1;
+            const muted = player.muted() || false;
+            setVolume(currentVolume);
+            setIsMuted(muted);
+            savePlayerPreferences({ volume: currentVolume, muted });
+        };
         const updateBuffered = () => {
             const buffered = player.buffered();
             if (buffered && buffered.length > 0) {
@@ -257,7 +270,7 @@ const PlayerControls = ({
         player.on('timeupdate', updateBuffered);
         player.on('loadedmetadata', updateDuration);
         player.on('progress', updateBuffered);
-        player.on('volumechange', updateMuted);
+        player.on('volumechange', updateVolume);
         player.on('ended', handleEnded);
 
         return () => {
@@ -267,7 +280,7 @@ const PlayerControls = ({
             player.off('timeupdate', updateBuffered);
             player.off('loadedmetadata', updateDuration);
             player.off('progress', updateBuffered);
-            player.off('volumechange', updateMuted);
+            player.off('volumechange', updateVolume);
             player.off('ended', handleEnded);
 
             if (videoEl) {
@@ -277,7 +290,6 @@ const PlayerControls = ({
         };
     }, [
         player,
-        volume,
         nextItem,
         dismissedNextItemPrompt,
         item.Id,
@@ -333,12 +345,14 @@ const PlayerControls = ({
     }, [player]);
 
     const handleVolumeChange = (values: number[]) => {
-        if (!player || values.length === 0) return;
+        if (!player || player.isDisposed?.() || values.length === 0) return volume;
         const newVolume = values[0];
-        setVolume(newVolume);
         if (newVolume > 0 && isMuted) player.muted(false);
         if (newVolume === 0 && !isMuted) player.muted(true);
         player.volume(newVolume);
+        const actualVolume = player.volume() ?? volume;
+        setVolume(actualVolume);
+        return actualVolume;
     };
 
     const toggleMute = useCallback(() => {
@@ -487,11 +501,24 @@ const PlayerControls = ({
                     />
                 )}
             </div>
-            <div
-                className={`absolute inset-0 z-10 p-4 ${showControls ? '' : 'cursor-none'}`}
-                onClick={togglePlay}
+            <PlayerGestureSurface
+                key={item.Id}
+                volume={isMuted ? 0 : volume}
+                brightness={brightness}
+                onVolumeChange={(value) => handleVolumeChange([value])}
+                onBrightnessChange={setBrightness}
+                onSeek={(seconds) => {
+                    if (!player || player.isDisposed?.() || isLive) return;
+                    const end = player.duration();
+                    const target = Math.max(0, (player.currentTime() ?? 0) + seconds);
+                    player.currentTime(
+                        end && Number.isFinite(end) ? Math.min(end, target) : target
+                    );
+                }}
+                onTap={togglePlay}
                 onMouseMove={handleMouseMove}
                 onMouseLeave={handleMouseLeave}
+                showControls={showControls}
             />
             <div className="absolute bottom-28 right-8 z-30 flex gap-2">
                 {showSkipIntroButton && !showNextItemPrompt && (
@@ -857,6 +884,7 @@ const PlayerControls = ({
                                         variant={'ghost'}
                                         size={'icon-lg'}
                                         className="cursor-pointer"
+                                        aria-label={t('subtitles')}
                                     >
                                         <Subtitles />
                                     </Button>
@@ -893,6 +921,7 @@ const PlayerControls = ({
                                         variant={'ghost'}
                                         size={'icon-lg'}
                                         className="cursor-pointer"
+                                        aria-label={t('audioTracks')}
                                     >
                                         <AudioLines />
                                     </Button>
