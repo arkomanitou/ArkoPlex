@@ -18,6 +18,7 @@ import { useLiveTvPrograms } from '@pelagica/core';
 import { getPrimaryImageUrl, type ImageSize } from '@pelagica/core';
 import type { BaseItemDto } from '@jellyfin/sdk/lib/generated-client/models';
 import { cn } from '@/lib/utils';
+import { enterPlayerFullscreen } from '@/utils/playerFullscreen';
 
 const CHANNEL_COL_WIDTH = 180;
 const ROW_HEIGHT = 64;
@@ -293,7 +294,10 @@ const LiveTvGuide = ({ searchTerm, categoryOptions }: LiveTvGuideProps) => {
                                     <div
                                         className="sticky left-0 z-30 bg-background shrink-0 rounded-l-lg flex items-center gap-2 px-2 cursor-pointer hover:bg-muted transition-colors"
                                         style={{ width: CHANNEL_COL_WIDTH }}
-                                        onClick={() => navigate(`/play/${channel.Id}`)}
+                                        onClick={() => {
+                                            enterPlayerFullscreen();
+                                            navigate(`/play/${channel.Id}`);
+                                        }}
                                     >
                                         <ChannelLogo
                                             channelId={channel.Id!}

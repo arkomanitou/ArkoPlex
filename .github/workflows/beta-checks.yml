@@ -39,6 +39,8 @@ jobs:
         run: node scripts/check-frontend.mjs
       - name: Rotation timing and pause tests (fake clock)
         run: node --test scripts/check-hero-rotation.mjs
+      - name: Player preferences and track matching
+        run: node --test scripts/check-player-preferences.mjs
   discovery-browser:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -61,6 +63,10 @@ jobs:
         env:
           ARKOPLEX_BROWSER_PACKAGE: ${{ runner.temp }}/arkoplex-browser
         run: node scripts/check-discovery-browser.mjs
+      - name: Player fullscreen, touch gestures and episode preferences
+        env:
+          ARKOPLEX_BROWSER_PACKAGE: ${{ runner.temp }}/arkoplex-browser
+        run: node scripts/check-player-browser.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

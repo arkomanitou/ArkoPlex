@@ -6,6 +6,23 @@ installation locale. La validation HTTPS derrière un proxy et les essais prolon
 restent à terminer avant de qualifier un accès extérieur. Le périmètre maintenu ici est le frontend web React et
 le backend Go ; les applications desktop et TV héritées restent hors périmètre.
 
+## Lecteur web — mise à jour tactile
+
+- Le clic sur une action de lecture demande le plein écran. Celui-ci reste attaché
+  au document pendant le chargement et le changement d’épisode. Le bouton du
+  lecteur permet toujours de le basculer manuellement.
+- Sur l’image, un glissement vertical à gauche règle la luminosité visuelle
+  (30–150 %) et à droite le volume du lecteur (0–100 %). Un double appui à gauche
+  ou à droite recule ou avance de dix secondes. Les commandes restent accessibles.
+- Le volume, le silence, la luminosité et les choix de langues sont mémorisés
+  localement par serveur et utilisateur. Les langues sont recherchées dans les
+  pistes du nouvel épisode, avec repli sur les préférences Jellyfin si elles manquent.
+
+Le plein écran exige une interaction et dépend du navigateur. La luminosité ajuste
+l’image vidéo. Si le navigateur refuse le réglage du volume, le lecteur indique
+d’utiliser les boutons de l’appareil. La validation automatisée utilise une vidéo
+WebM synthétique de 90 secondes et des comptes fictifs.
+
 ## Origine et licence
 
 ArkoPlex reprend [Pelagica](https://github.com/PelagicaApp/pelagica), ses auteurs

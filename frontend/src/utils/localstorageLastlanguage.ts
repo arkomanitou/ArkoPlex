@@ -1,3 +1,5 @@
+import { playerStorageKey } from './playerPreferences';
+
 const STORAGE_KEY = 'lastLanguageByItem';
 
 type ItemLanguageState = {
@@ -9,20 +11,31 @@ type LastLanguageMap = Record<string, ItemLanguageState>;
 
 function getMap(): LastLanguageMap {
     try {
-        return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
+        const value = JSON.parse(localStorage.getItem(playerStorageKey(STORAGE_KEY)) ?? '{}');
+        return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
     } catch {
         return {};
     }
 }
 
+function saveMap(map: LastLanguageMap): void {
+    try {
+        localStorage.setItem(playerStorageKey(STORAGE_KEY), JSON.stringify(map));
+    } catch {
+        // Preferences are optional when browser storage is unavailable.
+    }
+}
+
 export function getLastSubtitleLanguage(itemId: string | null): number | null {
     if (!itemId) return null;
-    return getMap()[itemId]?.subtitle ?? null;
+    const value = getMap()[itemId]?.subtitle;
+    return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : null;
 }
 
 export function getLastAudioLanguage(itemId: string | null): number | null {
     if (!itemId) return null;
-    return getMap()[itemId]?.audio ?? null;
+    const value = getMap()[itemId]?.audio;
+    return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : null;
 }
 
 export function setLastSubtitleLanguage(itemId: string, language: number): void {
@@ -31,7 +44,7 @@ export function setLastSubtitleLanguage(itemId: string, language: number): void 
         ...map[itemId],
         subtitle: language,
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
+    saveMap(map);
 }
 
 export function setLastAudioLanguage(itemId: string, language: number): void {
@@ -40,7 +53,7 @@ export function setLastAudioLanguage(itemId: string, language: number): void {
         ...map[itemId],
         audio: language,
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
+    saveMap(map);
 }
 
 export function removeLastSubtitleLanguage(itemId: string): void {
@@ -53,7 +66,7 @@ export function removeLastSubtitleLanguage(itemId: string): void {
         delete map[itemId];
     }
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
+    saveMap(map);
 }
 
 export function removeLastAudioLanguage(itemId: string): void {
@@ -66,5 +79,5 @@ export function removeLastAudioLanguage(itemId: string): void {
         delete map[itemId];
     }
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
+    saveMap(map);
 }
