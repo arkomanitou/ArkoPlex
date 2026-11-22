@@ -351,11 +351,16 @@ try {
   await page
     .getByRole("menuitemradio", { name: "fra - aac", exact: true })
     .click();
-  await page.waitForFunction(() => !!document.querySelector("video"));
+  await page.waitForFunction(() => {
+    const video = document.querySelector("video");
+    return (
+      video?.readyState >= 2 &&
+      new URL(video.currentSrc).searchParams.get("AudioStreamIndex") === "2"
+    );
+  });
   await page.mouse.move(xLeft, y);
   await page
-    .locator("button")
-    .filter({ has: page.locator(".lucide-subtitles") })
+    .getByRole("button", { name: /^(subtitles|sous.titres)$/i })
     .click();
   await page
     .getByRole("menuitemradio", { name: "Français", exact: true })
@@ -366,9 +371,14 @@ try {
   await page.mouse.move(xLeft, y);
   await page.locator('a[href^="/play/episode-2"]').first().click();
   await page.waitForURL("**/play/episode-2**");
-  await page.waitForFunction(
-    () => document.querySelector("video")?.readyState >= 2,
-  );
+  await page.waitForFunction(() => {
+    const video = document.querySelector("video");
+    return (
+      video?.readyState >= 2 &&
+      video.currentSrc.includes("/episode-2/") &&
+      new URL(video.currentSrc).searchParams.get("AudioStreamIndex") === "12"
+    );
+  });
   check(
     "Le plein écran survit au chargement de l’épisode suivant",
     await page.evaluate(
@@ -392,8 +402,7 @@ try {
   );
   await page.mouse.move(xLeft, y);
   await page
-    .locator("button")
-    .filter({ has: page.locator(".lucide-subtitles") })
+    .getByRole("button", { name: /^(subtitles|sous.titres)$/i })
     .click();
   check(
     "La piste française est sélectionnée après changement d’indice",
@@ -401,11 +410,22 @@ try {
       .getByRole("menuitemradio", { name: "Français", exact: true })
       .getAttribute("aria-checked")) === "true",
   );
-  await page.getByRole("menuitemradio", { name: /Off|Désactiv/ }).click();
+  await page.getByRole("menuitemradio", { name: /off|désactiv/i }).click();
   await video.evaluate((v) => {
     v.volume = 0;
     v.muted = true;
   });
+  await page.evaluate(() => document.exitFullscreen());
+  await page.mouse.move(xLeft, y);
+  await page.locator('a[href^="/play/episode-1"]').first().click();
+  await page.waitForURL("**/play/episode-1**");
+  await page.waitForFunction(
+    () => document.querySelector("video")?.readyState >= 2,
+  );
+  check(
+    "Une sortie volontaire du plein écran reste respectée à l’épisode suivant",
+    await page.evaluate(() => !document.fullscreenElement),
+  );
   await page.reload();
   await page.waitForFunction(
     () => document.querySelector("video")?.readyState >= 2,
@@ -416,13 +436,12 @@ try {
   );
   await page.mouse.move(xLeft, y);
   await page
-    .locator("button")
-    .filter({ has: page.locator(".lucide-subtitles") })
+    .getByRole("button", { name: /^(subtitles|sous.titres)$/i })
     .click();
   check(
     "Les sous-titres restent désactivés après rechargement",
     (await page
-      .getByRole("menuitemradio", { name: /Off|Désactiv/ })
+      .getByRole("menuitemradio", { name: /off|désactiv/i })
       .getAttribute("aria-checked")) === "true",
   );
   await page.keyboard.press("Escape");

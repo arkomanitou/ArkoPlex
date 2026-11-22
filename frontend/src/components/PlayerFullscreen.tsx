@@ -22,7 +22,11 @@ export function PlayerFullscreen() {
                     : null;
             if (!link || link.download || (link.target && link.target !== '_self')) return;
             const url = new URL(link.href, location.href);
-            if (url.origin === location.origin && url.pathname.startsWith(`${BASE_PATH}/play/`)) {
+            if (
+                url.origin === location.origin &&
+                url.pathname.startsWith(`${BASE_PATH}/play/`) &&
+                !location.pathname.startsWith(`${BASE_PATH}/play/`)
+            ) {
                 enterPlayerFullscreen();
             }
         };
