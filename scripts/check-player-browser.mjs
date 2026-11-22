@@ -323,12 +323,25 @@ try {
     });
   };
   await swipe(xRight, xRight, y - 70);
+  await page.waitForFunction(
+    (expected) =>
+      Math.abs(document.querySelector("video").volume - expected) < 0.001,
+    0.4 + 70 / Math.max(100, bounds.height * 0.7),
+  );
   const volume = await video.evaluate((v) => v.volume);
   check(
     "Le glissement droit augmente le volume sans pause parasite",
     volume > 0.5 && (await video.evaluate((v) => v.paused)),
   );
   await swipe(xLeft, xLeft, y - 70);
+  await page.waitForFunction(
+    (expected) => {
+      const filter = document.querySelector("video").style.filter;
+      const value = Number(filter.match(/^brightness\(([^)]+)\)$/)?.[1]);
+      return Math.abs(value - expected) < 0.001;
+    },
+    1 + 70 / Math.max(100, bounds.height * 0.7),
+  );
   const brightness = await video.evaluate((v) => v.style.filter);
   check(
     "Le glissement gauche éclaircit la vidéo",
