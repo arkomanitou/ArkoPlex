@@ -16,6 +16,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from './components/theme-provider.tsx';
 import { BASE_PATH } from '@pelagica/core';
 import { PlayerFullscreen } from './components/PlayerFullscreen';
+import { isAndroidApp } from './utils/androidPlatform';
 
 const DiscoverPage = lazy(() => import('./pages/Discover/DiscoverPage.tsx'));
 const HomePage = lazy(() => import('./pages/Home/HomePage.tsx'));
@@ -23,7 +24,11 @@ const LoginPage = lazy(() => import('./pages/Login/LoginPage.tsx'));
 const LibraryPage = lazy(() => import('./pages/Library/LibraryPage.tsx'));
 const ItemPage = lazy(() => import('./pages/Item/ItemPage.tsx'));
 const PersonPage = lazy(() => import('./pages/Person/PersonPage.tsx'));
-const PlayerPage = lazy(() => import('./pages/Player/PlayerPage.tsx'));
+const PlayerPage = lazy(() =>
+    isAndroidApp
+        ? import('./pages/Player/AndroidPlayerPage.tsx')
+        : import('./pages/Player/PlayerPage.tsx')
+);
 const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage.tsx'));
 const SearchPage = lazy(() => import('./pages/Search/SearchPage.tsx'));
 const ThemeBrowserPage = lazy(() => import('./pages/ThemeBrowser/ThemeBrowserPage.tsx'));

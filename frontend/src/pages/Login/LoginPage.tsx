@@ -22,6 +22,7 @@ import { getServerUrl, saveServerUrl } from '@pelagica/core';
 import { useServerBranding } from '@pelagica/core';
 import DOMPurify from 'dompurify';
 import QRCode from 'react-qr-code';
+import { isAndroidApp } from '@/utils/androidPlatform';
 
 const DEMO_SERVER_URL = 'https://jellyfin.streamyfin.app';
 const DEMO_USERNAME = 'pelagica';
@@ -268,6 +269,13 @@ const LoginPage = () => {
             }
             showHeader={false}
         >
+            {isAndroidApp && (
+                <p className="max-w-md p-3 text-sm text-muted-foreground">
+                    APK de test · Jellyfin en ligne et lecteur LibVLC. Jellyseerr, thèmes du serveur
+                    et téléchargements indisponibles. Les réglages ArkoPlex restent locaux à ce
+                    compte.
+                </p>
+            )}
             {step === 'server' && (
                 <Card className="max-w-md w-full mx-auto -translate-y-12">
                     <CardHeader className="flex flex-col items-center">

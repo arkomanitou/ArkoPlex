@@ -21,7 +21,7 @@ const numberToStatsConsent = (value: number): StatsConsent => {
 
 const hasStatsConsentBackend = () => {
     const platform = getPlatform();
-    return platform !== 'tizen' && platform !== 'webos';
+    return !['tizen', 'webos', 'android'].includes(platform);
 };
 
 const getLocalStatsConsent = (): StatsConsent => {

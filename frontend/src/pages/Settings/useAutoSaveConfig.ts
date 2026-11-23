@@ -1,7 +1,7 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useConfig, useUpdateConfig, type AppConfig } from '@pelagica/core';
-import { getServerUrl } from '@pelagica/core';
+import { getPlatform, getUserId, getServerUrl } from '@pelagica/core';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 
@@ -19,7 +19,11 @@ export const useAutoSaveConfig = () => {
 
     const saveConfig = useCallback(
         (updater: (prev: AppConfig) => AppConfig) => {
-            const key = ['config', getServerUrl()];
+            const key = [
+                'config',
+                getServerUrl(),
+                ...(getPlatform() === 'android' ? [getUserId()] : []),
+            ];
             const previous = queryClient.getQueryData<AppConfig>(key) ?? config;
             const newConfig = updater(previous);
             queryClient.setQueryData(key, newConfig);

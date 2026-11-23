@@ -303,7 +303,7 @@ const LegacyMediaBar = ({
 
 const MediaBar = (props: MediaBarProps) => {
     const { config } = useConfig();
-    return getPlatform() !== 'web' || config.nightPulseEnabled === false ? (
+    return !['web', 'android'].includes(getPlatform()) || config.nightPulseEnabled === false ? (
         <LegacyMediaBar {...props} />
     ) : (
         <ArkoHero {...props} />

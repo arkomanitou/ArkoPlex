@@ -4,7 +4,8 @@ import { getMediaInfoApi } from '@jellyfin/sdk/lib/utils/api/media-info-api';
 import type { MediaSourceInfo } from '@jellyfin/sdk/lib/generated-client/models';
 import { getRetryConfig } from '../utils/authErrorHandler';
 import { detectSupportedCodecs } from '../utils/videoCodecDetection';
-import { getPlatformCapabilities } from '../api/jellyfinClient';
+import { androidDeviceProfile } from '../utils/androidDeviceProfile';
+import { getPlatform, getPlatformCapabilities } from '../api/jellyfinClient';
 
 export type PlayMethod = 'DirectPlay' | 'DirectStream' | 'Transcode';
 
@@ -16,6 +17,7 @@ export interface PlaybackDecision {
 }
 
 function buildDeviceProfile(options?: { liveTvContainer?: boolean; excludeHevc?: boolean }) {
+    if (getPlatform() === 'android') return androidDeviceProfile();
     const codecs = detectSupportedCodecs();
 
     const videoCodecs: string[] = [];
@@ -119,6 +121,7 @@ export function usePlaybackInfo(
             audioStreamIndex,
             forceTranscode,
             subtitleStreamIndex,
+            getPlatform(),
         ],
         queryFn: async (): Promise<PlaybackDecision> => {
             const api = getApi();
@@ -161,7 +164,10 @@ export function usePlaybackInfo(
                 response = await mediaInfoApi.getPostedPlaybackInfo({
                     ...request,
                     mediaSourceId,
-                    playbackInfoDto: { ...request.playbackInfoDto, MediaSourceId: mediaSourceId },
+                    playbackInfoDto: {
+                        ...request.playbackInfoDto,
+                        MediaSourceId: mediaSourceId,
+                    },
                 });
                 const negotiated = response.data.MediaSources?.find((s) => s.Id === mediaSourceId);
                 if (!negotiated) throw new Error('Selected playback media source is unavailable');
@@ -206,7 +212,7 @@ export function usePlaybackInfo(
 
             return { playMethod, mediaSource: source, playSessionId, liveStreamId };
         },
-        enabled: !!itemId,
+        enabled: !!itemId && !!userId,
         // A completed play session must not be reused on a later visit.
         gcTime: 0,
         staleTime: 30_000,

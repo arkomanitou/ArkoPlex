@@ -1,3 +1,4 @@
+import { getPlatform } from '../api/jellyfinClient';
 import { withBasePath } from './basePath';
 import { getAccessToken, getServerUrl } from './localstorageCredentials';
 import { getSupportedVideoCodecs } from './videoCodecDetection';
@@ -313,7 +314,7 @@ export function getPlaybackStreamUrl(
     const container = options.container?.toLowerCase();
     const mimeType = container ? BROWSER_PLAYABLE_CONTAINERS[container] : undefined;
 
-    if (playMethod === 'DirectPlay' && mimeType) {
+    if (playMethod === 'DirectPlay' && (mimeType || getPlatform() === 'android')) {
         return {
             url: getDirectStreamUrl(itemId, {
                 mediaSourceId: options.mediaSourceId,
@@ -321,7 +322,7 @@ export function getPlaybackStreamUrl(
                 audioStreamIndex: options.audioStreamIndex,
                 playSessionId: options.playSessionId,
             }),
-            mimeType,
+            mimeType: mimeType || 'application/octet-stream',
         };
     }
 
@@ -460,6 +461,10 @@ export function getBackendStudioImageUrl(
     monoColor: string,
     monoColor2: string
 ) {
-    const params = new URLSearchParams({ mono: 'true', color: monoColor, color2: monoColor2 });
+    const params = new URLSearchParams({
+        mono: 'true',
+        color: monoColor,
+        color2: monoColor2,
+    });
     return withBasePath(`/api/studios/${encodeURIComponent(studioName)}/logo?${params.toString()}`);
 }
