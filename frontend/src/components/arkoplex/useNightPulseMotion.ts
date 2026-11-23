@@ -13,7 +13,7 @@ export function useNightPulseMotion() {
     const reduced = useSyncExternalStore(subscribe, snapshot, () => true);
     const { config } = useConfig();
     return (
-        getPlatform() === 'web' &&
+        ['web', 'android'].includes(getPlatform()) &&
         config.nightPulseEnabled !== false &&
         config.nightPulseMotion !== 'off' &&
         !reduced

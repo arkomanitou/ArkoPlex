@@ -442,10 +442,33 @@ const ARKOPLEX_DEFAULT_CONFIG: AppConfig = {
     ],
 };
 
-const getDefaults = () => (getPlatform() === 'web' ? ARKOPLEX_DEFAULT_CONFIG : DEFAULT_CONFIG);
+const getDefaults = () =>
+    ['web', 'android'].includes(getPlatform()) ? ARKOPLEX_DEFAULT_CONFIG : DEFAULT_CONFIG;
+
+const androidConfigKey = () =>
+    `arkoplex-android-config:${JSON.stringify([getServerUrl(), localStorage.getItem('jf_user')])}`;
 
 const fetchConfig = async (): Promise<AppConfig> => {
     const defaults = getDefaults();
+    if (getPlatform() === 'android') {
+        try {
+            const data = JSON.parse(localStorage.getItem(androidConfigKey()) || '{}');
+            return {
+                ...defaults,
+                ...data,
+                itemPage: {
+                    ...defaults.itemPage,
+                    ...data.itemPage,
+                    showDownloadButton: false,
+                },
+            };
+        } catch {
+            return {
+                ...defaults,
+                itemPage: { ...defaults.itemPage, showDownloadButton: false },
+            };
+        }
+    }
     const serverUrl = getServerUrl();
     let data: AppConfig;
     if (getPlatform() === 'web') {
@@ -462,13 +485,21 @@ const fetchConfig = async (): Promise<AppConfig> => {
     return {
         ...defaults,
         ...data,
-        itemPage: { ...DEFAULT_ITEM_PAGE_SETTINGS, ...defaults.itemPage, ...data.itemPage },
+        itemPage: {
+            ...DEFAULT_ITEM_PAGE_SETTINGS,
+            ...defaults.itemPage,
+            ...data.itemPage,
+        },
     };
 };
 
 export const useConfig = () => {
     const { data, isLoading, error } = useQuery({
-        queryKey: ['config', getServerUrl()],
+        queryKey: [
+            'config',
+            getServerUrl(),
+            ...(getPlatform() === 'android' ? [localStorage.getItem('jf_user')] : []),
+        ],
         queryFn: fetchConfig,
         staleTime: Infinity,
         gcTime: 30 * 60 * 1000,
@@ -484,13 +515,21 @@ export const useUpdateConfig = () => {
     const queryClient = useQueryClient();
     const mutation = useMutation({
         mutationFn: async (newConfig: AppConfig): Promise<void> => {
+            if (getPlatform() === 'android') {
+                localStorage.setItem(androidConfigKey(), JSON.stringify(newConfig));
+                return;
+            }
             if (getPlatform() === 'web') return saveArkoPlexConfig(newConfig);
             const serverUrl = getServerUrl();
             if (!serverUrl) throw new Error('Server URL not set');
             await savePluginConfig(serverUrl, newConfig);
         },
         onSuccess: (_data, newConfig) => {
-            const key = ['config', getServerUrl()];
+            const key = [
+                'config',
+                getServerUrl(),
+                ...(getPlatform() === 'android' ? [localStorage.getItem('jf_user')] : []),
+            ];
             // Do not replace newer optimistic edits with an older completed save.
             if (
                 getPlatform() === 'web' &&

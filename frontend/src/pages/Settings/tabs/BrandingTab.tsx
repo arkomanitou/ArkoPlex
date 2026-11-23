@@ -28,6 +28,8 @@ export const BrandingTab = ({
     const [logoDarkFile, setLogoDarkFile] = useState<File | null>(null);
 
     const handleBrandingLogoUpload = async (mode: 'light' | 'dark', file: File) => {
+        if (getPlatform() === 'android')
+            throw new Error('Import de logo indisponible dans cette APK ; utilisez une URL.');
         const serverUrl = getServerUrl();
         if (!serverUrl) {
             throw new Error('Server URL not set');
