@@ -139,7 +139,7 @@ public class LibVLCActivity extends androidx.activity.ComponentActivity {
     reporter =
         new SessionReporter(options.optJSONObject("session"), options.optString("authorization"));
     volume = Math.max(0, Math.min(100, (int) (options.optDouble("volume", 1) * 100)));
-    brightness = (float) Math.max(0.05, Math.min(1, options.optDouble("brightness", 1)));
+    brightness = (float) Math.max(0.3, Math.min(1, options.optDouble("brightness", 1)));
     audioOrdinal = options.optInt("audioOrdinal", -1);
     subtitleOrdinal = options.optInt("subtitleOrdinal", -1);
     audioIndices = options.optJSONArray("audioIndices");
@@ -172,14 +172,14 @@ public class LibVLCActivity extends androidx.activity.ComponentActivity {
       player.setMedia(media);
       media.release();
       player.setVolume(volume);
-      requestAudioFocus();
+      boolean hasAudioFocus = requestAudioFocus();
       ContextCompat.registerReceiver(
           this,
           noisy,
           new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY),
           ContextCompat.RECEIVER_NOT_EXPORTED);
       receiverRegistered = true;
-      player.play();
+      if (hasAudioFocus) player.play();
       handler.post(tick);
     } catch (Exception | LinkageError ignored) {
       finishPlayback("error");
@@ -272,10 +272,7 @@ public class LibVLCActivity extends androidx.activity.ComponentActivity {
             () -> {
               if (player == null) return;
               if (player.isPlaying()) player.pause();
-              else {
-                requestAudioFocus();
-                player.play();
-              }
+              else if (requestAudioFocus()) player.play();
               report();
               showControls();
             });
@@ -372,7 +369,7 @@ public class LibVLCActivity extends androidx.activity.ComponentActivity {
                 float delta =
                     (first.getY() - current.getY()) / Math.max(1, view.getHeight()) * 1.5f;
                 if (first.getX() < view.getWidth() / 2f) {
-                  brightness = Math.max(.05f, Math.min(1, startBrightness + delta));
+                  brightness = Math.max(.3f, Math.min(1, startBrightness + delta));
                   applyBrightness();
                   showFeedback("Luminosité " + Math.round(brightness * 100) + " %");
                 } else {
@@ -608,8 +605,9 @@ public class LibVLCActivity extends androidx.activity.ComponentActivity {
     lastReport = android.os.SystemClock.elapsedRealtime();
   }
 
-  private void requestAudioFocus() {
+  private boolean requestAudioFocus() {
     audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
+    int result;
     if (Build.VERSION.SDK_INT >= 26) {
       focusRequest =
           new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
@@ -620,10 +618,19 @@ public class LibVLCActivity extends androidx.activity.ComponentActivity {
                       .build())
               .setOnAudioFocusChangeListener(focusListener)
               .build();
-      audioManager.requestAudioFocus(focusRequest);
+      result = audioManager.requestAudioFocus(focusRequest);
     } else
-      audioManager.requestAudioFocus(
-          focusListener, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN);
+      result =
+          audioManager.requestAudioFocus(
+              focusListener, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN);
+    boolean granted = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
+    if (!granted)
+      Toast.makeText(
+              this,
+              "Lecture en pause : le son est utilisé par une autre application.",
+              Toast.LENGTH_LONG)
+          .show();
+    return granted;
   }
 
   void finishPlayback(String reason) {
